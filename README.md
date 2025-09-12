@@ -1,20 +1,22 @@
-# HiggsML BlackSwan Package
+# AnalysisWeb Package
 
-[![Documentation Status](https://readthedocs.org/projects/black-swan-pkg/badge/?version=latest)](https://black-swan-pkg.readthedocs.io/en/latest/?badge=latest)
+<!-- [![Documentation Status](https://readthedocs.org/projects/black-swan-pkg/badge/?version=latest)](https://black-swan-pkg.readthedocs.io/en/latest/?badge=latest) -->
 
 you can install this package by 
 ```shell
-pip install HiggsML
+pip install AnalysisWeb
 ```
 
-The Package consists of 5 modules :
+The package consists of 5 function :
 
-* 1 `ingestion`: This module contains the `Ingestion` class which takes case of the ingestion process of the competition. i.e. loading data into the model, initialization of the model, prediction etc. 
-* 2 `datasets` This module contains the `Data` class which has the train and test data in required formats, It loads the data according to the file format. it also contains function to make pseudo experiments. 
-* 3 `systematics` This module has functions to add systematics to the data with based in Nuisance parameter like 
-    * Tau Hadron Energy scale
-    * Jet Energy Scale 
-    * Soft MET
-    * W Background Normalisation
-    * Overall Background Normalisation 
-* 4 `visualisation` This module contains the `Dataset_visualise` class which has methods to help visualise the data 
+* 1 `create_results_index`: Creates an HTML index page linking to all result files.
+* 2 `config_to_html` : Creates an HTML report of the configuration object with compact layout.
+* 3 `image_report_to_html` : Creates an HTML report with a base64 image and dictionary information.
+* 4 `save_table_html` : Saves a DataFrame as an HTML file using template markers for clean appending
+* 5 `image_gallery_to_html` : Create an HTML page with multiple base64 images in a gallery layout.
+
+Use the functions above to create the `*.html` pages for each run 
+
+The package consists of the `Sequencer` Class which helps maintain the CSV file system required for the index page
+
+For each process (eg. "fit", "valid", "analysis" ...) set the result as a string (eg. "Fitting") use the Sequencer to connect between the processes and update the status. 

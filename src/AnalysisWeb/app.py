@@ -4,25 +4,26 @@ import os
 from flask import Flask, send_from_directory, abort, request, jsonify
 import argparse
 from importlib.resources import files
-import subprocess
-import AnalysisWeb
-from AnalysisWeb import get_default_save_dir
+# Define absolute paths to your directories
+TEMPLATES_DIR = files("AnalysisWeb") / "templates"
+STATIC_DIR = files("AnalysisWeb") / "static"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--results-dir",
-    default=get_default_save_dir(),
+    default=os.getcwd(),
     help="Path to all the result pages",
 )
+
+parser.add_argument(
+    "--csv-dir",
+    default=STATIC_DIR,
+    help="Path to all the result pages",
+)
+
 app = Flask(__name__)
 args, _ = parser.parse_known_args()
 
-# Get the absolute path to the directory containing this script
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Define absolute paths to your directories
-TEMPLATES_DIR = files("AnalysisWeb") / "templates"
-STATIC_DIR = files("AnalysisWeb") / "static"
 RESULTS_DIR = args.results_dir
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -45,7 +46,7 @@ def serve_css():
 @app.route("/<filename>")
 def serve_root_files(filename):
     if filename.endswith('.csv'):
-        return send_from_directory(STATIC_DIR, filename)
+        return send_from_directory(CSV_DIR, filename)
     abort(404)
 
 # Serve result files from results/result_* folders
