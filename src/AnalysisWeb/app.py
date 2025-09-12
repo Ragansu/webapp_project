@@ -2,54 +2,50 @@
 
 import os
 from flask import Flask, send_from_directory, abort, request, jsonify
-
 import argparse
+from importlib.resources import files
 import subprocess
-parser = argparse.ArgumentParser()
+import AnalysisWeb
+from AnalysisWeb import get_default_save_dir
 
+parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--cca",
-    action="store_true",
-    default=False,
-    help="Enable Retraining",
+    "--results-dir",
+    default=get_default_save_dir(),
+    help="Path to all the result pages",
 )
 app = Flask(__name__)
-
 args, _ = parser.parse_known_args()
 
-repo = os.path.dirname(__file__)
+# Get the absolute path to the directory containing this script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-cca = args.cca
+# Define absolute paths to your directories
+TEMPLATES_DIR = files("AnalysisWeb") / "templates"
+STATIC_DIR = files("AnalysisWeb") / "static"
+RESULTS_DIR = args.results_dir
 
-if cca:
+os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    # Serve main HTML page
-    @app.route("/")
-    def home():
-        return send_from_directory("templates", "index_cca.html")
-
-else :
-
-    # Serve main HTML page
-    @app.route("/")
-    def home():
-        return send_from_directory("templates", "index.html")
+# Serve main HTML page
+@app.route("/")
+def home():
+    return send_from_directory(TEMPLATES_DIR, "index.html")
 
 # Serve static files (CSS, JS, etc.)
 @app.route("/static/<path:filename>")
 def serve_static(filename):
-    return send_from_directory("static", filename)
+    return send_from_directory(STATIC_DIR, filename)
 
 @app.route("/style.css")
 def serve_css():
-    return send_from_directory("static", "style.css")
+    return send_from_directory(STATIC_DIR, "style.css")
 
-# Serve CSV files directly from static (for your results_data.csv)
+# Serve CSV files directly from static
 @app.route("/<filename>")
 def serve_root_files(filename):
     if filename.endswith('.csv'):
-        return send_from_directory("static", filename)
-
+        return send_from_directory(STATIC_DIR, filename)
     abort(404)
 
 # Serve result files from results/result_* folders
@@ -58,9 +54,10 @@ def serve_result_direct(folder, filename):
     if not folder.startswith("result_"):
         abort(404)
     
-    folder_path = os.path.join("results", folder)
+    folder_path = os.path.join(RESULTS_DIR, folder)
+    file_path = os.path.join(folder_path, filename)
     
-    if not os.path.exists(os.path.join(folder_path, filename)):
+    if not os.path.exists(file_path):
         abort(404)
     
     return send_from_directory(folder_path, filename)
@@ -70,82 +67,38 @@ def serve_result_index(folder):
     if not folder.startswith("result_"):
         abort(404)
     
-    folder_path = os.path.join("results", folder)
-    filename = "index.html"
+    folder_path = os.path.join(RESULTS_DIR, folder)
+    file_path = os.path.join(folder_path, "index.html")
     
-    if not os.path.exists(os.path.join(folder_path, filename)):
+    if not os.path.exists(file_path):
         abort(404)
     
-    return send_from_directory(folder_path, filename)
-# Endpoint triggered by your button
-@app.route("/send_sbatch_job", methods=["POST"])
-def send_sbatch_job():
-    data = request.get_json()
-    model_type = data.get("modelType")
+    return send_from_directory(folder_path, "index.html")
 
+@app.route("/debug-paths")
+def debug_paths():
+    """Debug endpoint to see where files are located"""
+    import AnalysisWeb  # your actual package name
+    from importlib.resources import files
+    
+    debug_info = {
+        "current_working_directory": os.getcwd(),
+        "script_directory": os.path.dirname(os.path.abspath(__file__)),
+        "package_location": os.path.dirname(AnalysisWeb.__file__),
+        "templates_path": str(files("AnalysisWeb") / "templates"),
+        "static_path": str(files("AnalysisWeb") / "static"),
+        "templates_exists": os.path.exists(str(files("AnalysisWeb") / "templates")),
+        "static_exists": os.path.exists(str(files("AnalysisWeb") / "static")),
+    }
+    
+    # List files in package directory
     try:
-        result = subprocess.run(
-            ["bash", f"{repo}/extra_scripts/send_sbatch_job.sh", "--model-type", model_type],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return jsonify({"status": "success", "output": result.stdout})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"status": "error", "output": e.stderr}), 500
-
-
-@app.route("/cancel_job", methods=["POST"])
-def cancel_job():
-    data = request.get_json()
-    job_id = data.get("jobId")
-    model_type = data.get("modelType")
-    date = data.get("date")
-
-    if not job_id:
-        return jsonify({"status": "error", "output": "Missing job_id"}), 400
-
-    print("Date:", date)
-    print("Job ID:", job_id)
-    print("Model Type:", model_type)
-
-    try:
-        helper_result = subprocess.run(
-            [
-                "bash",
-                f"{repo}/extra_scripts/cancel_sbatch_job.sh",
-                "--model-type",
-                str(model_type),
-                "--job-id",
-                str(job_id),
-                "--unique-date",
-                str(date),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        # Second: cancel job with SLURM scancel
-        scancel_result = subprocess.run(
-            ["scancel", str(job_id)],  
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        return jsonify({
-            "status": "success",
-            "helper_output": helper_result.stdout.strip(),
-            "scancel_output": scancel_result.stdout.strip(),
-        })
-
-    except subprocess.CalledProcessError as e:
-        return jsonify({"status": "error", "output": e.stderr.strip()}), 500
-
-
-
-
+        package_files = os.listdir(os.path.dirname(AnalysisWeb.__file__))
+        debug_info["package_files"] = package_files
+    except Exception as e:
+        debug_info["package_files_error"] = str(e)
+    
+    return jsonify(debug_info)
 
 if __name__ == "__main__":
     app.run(debug=True)

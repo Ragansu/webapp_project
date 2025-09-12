@@ -3,14 +3,14 @@ requires = ["hatchling>=1.18.0"]  # Only build tools here
 build-backend = "hatchling.build"
 
 [project]
-name = "HiggsML"
+name = "AnalysisWeb"
 version = "0.0.0"
 authors = [
     { name = "Ragansu Chakkappai", email = "ragansu.chakkappai@universite-paris-saclay.fr" }
 ]
 description = "AnalysisWeb"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -30,6 +30,12 @@ dependencies = [
     # The following are in the standard library and should NOT be included:
     # "os", "glob", "pathlib", "datetime", "warnings", "argparse", "subprocess"
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/AnalysisWeb"]
+
+[tool.hatch.build]
+include = ["src/AnalysisWeb/templates/**/*", "src/AnalysisWeb/static/**/*"]
 
 [project.urls]
 Homepage = "https://github.com/blackSwanCS/black_swan_pkg"
