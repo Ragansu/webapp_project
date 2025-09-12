@@ -38,6 +38,5 @@ packages = ["src/AnalysisWeb"]
 include = ["src/AnalysisWeb/templates/**/*", "src/AnalysisWeb/static/**/*"]
 
 [project.urls]
-Homepage = "https://github.com/blackSwanCS/black_swan_pkg"
-Issues = "https://github.com/blackSwanCS/black_swan_pkg/issues"
-Documentation = "https://black-swan-pkg.readthedocs.io/en/latest"
+Homepage = "https://github.com/Ragansu/webapp_project"
+Issues = "https://github.com/Ragansu/webapp_project/issues"
