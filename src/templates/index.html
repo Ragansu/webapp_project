@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Records Index</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/jpg" href="/static/higgs_pot.jpg">
+</head>
+
+<body>
+    <a href="/" class="home-button">Home</a>
+
+    <div class="index-container">
+        <div class="header">
+            <h1>Data Records</h1>
+        </div>
+
+        <div class="instructions">
+            <h3>How to use this page:</h3>
+            <p>This table displays data loaded from the <code>results_data.csv</code> file. Each row represents a record
+                with date, type, and scores.</p>
+            <p>Click on any column header to sort the table by that column (ascending/descending).</p>
+            <p>Each row is clickable and will take you to a detail page.</p>
+            <p>Click the "Run Script" button to execute a shell script with the <code>--model-type</code> parameter set
+                to the value in the Type column.</p>
+        </div>
+
+        <div class="table-container">
+            <div id="loading" class="loading">Loading data from results_data.csv...</div>
+            <div id="error" class="error" style="display: none;"></div>
+
+            <table id="data-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th data-sort="date">Date <span class="sort-icon">↕</span></th>
+                        <th data-sort="type">Type <span class="sort-icon">↕</span></th>
+                        <th data-sort="job_id">job ID <span class="sort-icon">↕</span></th>
+                        <th data-sort="Status">Status <span class="sort-icon">↕</span></th>
+                        <th data-sort="score">Score <span class="sort-icon">↕</span></th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Data will be inserted here -->
+                </tbody>
+            </table>
+
+            <button id="reload-button" class="reload-button" style="display: none;">Reload Data</button>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const table = document.getElementById('data-table');
+            const tableBody = document.getElementById('table-body');
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const reloadButton = document.getElementById('reload-button');
+            const notification = document.getElementById('notification');
+
+            // Show notification
+            function showNotification(message, isSuccess) {
+                notification.textContent = message;
+                notification.className = 'notification ' + (isSuccess ? 'success' : 'error');
+                notification.classList.add('show');
+
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+
+            // // Function to execute shell script
+            // function executeScript(rowData) {
+            //     // Extract the model type from the row data
+            //     const modelType = rowData.type;
+
+            //     // Show a notification (in a real implementation, this would execute a script)
+            //     showNotification(`Executing script with --model-type=${modelType}`, true);
+
+            //     fetch("/send_sbatch_job", {
+            //         method: "POST",
+            //         headers: { "Content-Type": "application/json" },
+            //         body: JSON.stringify({ modelType })
+            //     })
+            //         .then(response => response.json())
+            //         .then(data => {
+            //             alert(data.status + ":\n" + data.output);
+            //         })
+            //         .catch(error => {
+            //             console.error("Error:", error);
+            //         });
+
+            // }
+
+            // function cancelJob(rowData) {
+            //     const modelType = rowData.type;
+            //     const date = rowData.date;
+            //     const jobId = rowData.job_id;
+
+            //     fetch("/cancel_job", {
+            //         method: "POST",
+            //         headers: { "Content-Type": "application/json" },
+            //         body: JSON.stringify({
+            //             jobId: jobId,        
+            //             modelType: modelType,
+            //             date: date           
+            //         })
+            //     })
+            //         .then(response => response.json())
+            //         .then(data => {
+            //             if (data.status === "success") {
+            //                 showNotification("Job cancelled successfully", true);
+            //             } else {
+            //                 alert("Failed to cancel job: " + data.output);
+            //             }
+            //         })
+            //         .catch(error => {
+            //             console.error("Error cancelling job:", error);
+            //         });
+            // }
+
+            // Load data from CSV file
+            function loadDataFromCSV() {
+                loading.style.display = 'block';
+                errorDiv.style.display = 'none';
+                table.style.display = 'none';
+                reloadButton.style.display = 'none';
+
+                fetch('results_data.csv?' + new Date().getTime())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to load CSV file: ' + response.status);
+                        }
+                        return response.text();
+                    })
+                    .then(csvString => {
+                        try {
+                            const data = parseCSV(csvString);
+
+                            if (data.length === 0) {
+                                showError('No data found in CSV file');
+                                return;
+                            }
+
+                            renderTable(data);
+
+                            // Hide loading, show table
+                            loading.style.display = 'none';
+                            table.style.display = 'table';
+                        } catch (e) {
+                            showError('Error parsing CSV: ' + e.message);
+                        }
+                    })
+                    .catch(error => {
+                        showError('Error loading CSV file: ' + error.message);
+                    });
+
+            }
+
+            // Parse CSV data from string
+            function parseCSV(csvString) {
+                const lines = csvString.split('\n');
+                const headers = lines[0].split(',').map(header => header.trim());
+
+
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line === '') continue;
+
+                    const values = line.split(',');
+                    const entry = {};
+
+                    headers.forEach((header, index) => {
+                        entry[header] = values[index] ? values[index].trim() : '';
+                    });
+
+                    data.push(entry);
+                }
+
+                return data;
+            }
+
+            // Show error message
+            function showError(message) {
+                loading.style.display = 'none';
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                reloadButton.style.display = 'block';
+            }
+
+            // Render table with data
+            function renderTable(data) {
+                tableBody.innerHTML = '';
+
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+
+                    // Store the link as a data attribute
+                    if (row.link) {
+                        tr.setAttribute('data-link', row.link);
+                    }
+
+                    // Date column
+                    const dateTd = document.createElement('td');
+                    dateTd.textContent = row.date;
+                    tr.appendChild(dateTd);
+
+                    // Type column
+                    const typeTd = document.createElement('td');
+                    typeTd.textContent = row.type;
+                    tr.appendChild(typeTd);
+
+                    // Type column
+                    const jobIdTd = document.createElement('td');
+                    jobIdTd.textContent = row.job_id;
+                    tr.appendChild(jobIdTd);
+
+                    // Status column
+                    const statusTd = document.createElement('td');
+                    statusTd.textContent = row.Status;
+                    tr.appendChild(statusTd);
+
+                    // Score columns
+                    const noBkgTd = document.createElement('td');
+                    noBkgTd.textContent = row.score;
+                    tr.appendChild(noBkgTd);
+
+                    // Make row clickable if link is provided
+                    if (row.link) {
+                        tr.style.cursor = 'pointer';
+                        tr.addEventListener('click', () => {
+                            // Navigate to page.
+                            window.location.href = row.link;
+                        });
+
+                        // Add hover effect
+                        tr.addEventListener('mouseenter', () => {
+                            tr.style.backgroundColor = '#e3f2fd';
+                        });
+
+                        tr.addEventListener('mouseleave', () => {
+                            // Reset to original background color
+                            if (Array.from(tableBody.children).indexOf(tr) % 2 === 0) {
+                                tr.style.backgroundColor = '';
+                            } else {
+                                tr.style.backgroundColor = '#f8f9fa';
+                            }
+                        });
+                    }
+
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            // Sort table data
+            function sortTable(column, direction) {
+                // Get current data from table
+                const data = [];
+                const rows = tableBody.querySelectorAll('tr');
+
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    data.push({
+                        date: cells[0].textContent,
+                        type: cells[1].textContent,
+                        job_id: cells[2].textContent,
+                        Status: cells[3].textContent,
+                        score: cells[4].textContent,
+                        link: row.getAttribute('data-link') || ''
+                    });
+                });
+
+                data.sort((a, b) => {
+                    let valueA = a[column];
+                    let valueB = b[column];
+
+                    if (['score'].includes(column)) {
+                        valueA = Number(valueA);
+                        valueB = Number(valueB);
+                    }
+
+                    // Handle date sorting
+                    if (column === 'date') {
+                        valueA = new Date(valueA);
+                        valueB = new Date(valueB);
+                    }
+
+                    if (valueA < valueB) {
+                        return direction === 'asc' ? -1 : 1;
+                    }
+                    if (valueA > valueB) {
+                        return direction === 'asc' ? 1 : -1;
+                    }
+                    return 0;
+                });
+
+                renderTable(data);
+
+                // Update sort indicators
+                document.querySelectorAll('th').forEach(header => {
+                    const icon = header.querySelector('.sort-icon');
+                    if (header.dataset.sort === column) {
+                        icon.textContent = direction === 'asc' ? '↑' : '↓';
+                    } else {
+                        icon.textContent = '↕';
+                    }
+                });
+            }
+
+            // Set up sorting
+            document.querySelectorAll('th').forEach(header => {
+                let sortDirection = 'asc';
+
+                header.addEventListener('click', () => {
+                    const column = header.dataset.sort;
+
+                    // Toggle direction
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+
+                    sortTable(column, sortDirection);
+                });
+            });
+
+            // Set up reload button
+            reloadButton.addEventListener('click', loadDataFromCSV);
+
+            // Initial load
+            loadDataFromCSV();
+        });
+    </script>
+</body>
+
+</html>

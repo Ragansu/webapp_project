@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.18.0"]  # Only build tools here
+build-backend = "hatchling.build"
+
+[project]
+name = "HiggsML"
+version = "0.0.0"
+authors = [
+    { name = "Ragansu Chakkappai", email = "ragansu.chakkappai@universite-paris-saclay.fr" }
+]
+description = "AnalysisWeb"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Flask>=3.0.0",       
+    "pandas>=2.2.2",      
+    "matplotlib>=3.8.0",  
+    "seaborn>=0.13.1",    
+    "numpy>=1.26.4",       # (pandas dependency, but good to specify)
+    "scikit-learn>=1.4.2",
+    "pyarrow>=15.0.0",     # (often used with pandas)
+    "requests>=2.31.0",   
+    "tabulate>=0.9.0",    
+    "mpld3>=0.5.8",       
+    # The following are in the standard library and should NOT be included:
+    # "os", "glob", "pathlib", "datetime", "warnings", "argparse", "subprocess"
+]
+
+[project.urls]
+Homepage = "https://github.com/blackSwanCS/black_swan_pkg"
+Issues = "https://github.com/blackSwanCS/black_swan_pkg/issues"
+Documentation = "https://black-swan-pkg.readthedocs.io/en/latest"
