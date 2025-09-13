@@ -1,9 +1,15 @@
 #!/usr/bin/python3
 
-import os
-from flask import Flask, send_from_directory, abort, jsonify
+"""Web interface module for serving plots and tables."""
+
 import argparse
+import os
 from importlib.resources import files
+
+from flask import Flask, abort, jsonify, send_from_directory
+
+import AnalysisWeb  
+
 
 # Define absolute paths to your directories
 TEMPLATES_DIR = files("AnalysisWeb") / "templates"
@@ -95,8 +101,6 @@ def serve_result_index(folder):
 @app.route("/debug-paths")
 def debug_paths():
     """Debug endpoint to see where files are located"""
-    import AnalysisWeb  # your actual package name
-    from importlib.resources import files
 
     debug_info = {
         "current_working_directory": os.getcwd(),
