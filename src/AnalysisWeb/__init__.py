@@ -21,8 +21,6 @@ def set_default_save_dir(file_loc):
     global _DEFAULT_SAVE_DIR
     if os.path.exists(file_loc):
         _DEFAULT_SAVE_DIR = file_loc
-    else:
-        raise
 
 
 def get_default_save_dir():
@@ -569,10 +567,7 @@ class Sequencer:
         if plots_dir is not None:
             self.entry_dict["link"] = os.path.basename(plots_dir) + "/index.html"
             self.plots_dir = plots_dir
-            self.output_html = os.path.join(plots_dir, "index.html")
-            create_results_index(
-                self.plots_dir, self.output_html, title=os.path.basename(self.plots_dir)
-            )
+            create_results_index(self.plots_dir, title=os.path.basename(self.plots_dir))
         else:
             self.entry_dict["link"] = "/"
 
@@ -585,9 +580,7 @@ class Sequencer:
         try:
             self.index_df.loc[self.next_index] = self.entry_dict
             self.index_df.to_csv(self.plots_data_file, index=False)
-            create_results_index(
-                self.plots_dir, self.output_html, title=os.path.basename(self.plots_dir)
-            )
+            create_results_index(self.plots_dir, title=os.path.basename(self.plots_dir))
         except Exception as save_error:
             print(f"Failed to save results: {save_error}")
 
