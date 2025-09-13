@@ -25,26 +25,32 @@ app = Flask(__name__)
 args, _ = parser.parse_known_args()
 
 RESULTS_DIR = args.results_dir
+CSV_DIR = args.csv_dir
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 # Serve main HTML page
 @app.route("/")
 def home():
+    """ Links the home page or index page"""
+    
     return send_from_directory(TEMPLATES_DIR, "index.html")
 
 # Serve static files (CSS, JS, etc.)
 @app.route("/static/<path:filename>")
 def serve_static(filename):
+    """ Links the static folder"""
     return send_from_directory(STATIC_DIR, filename)
 
 @app.route("/style.css")
 def serve_css():
+    """ Links the style.css """
     return send_from_directory(STATIC_DIR, "style.css")
 
 # Serve CSV files directly from static
 @app.route("/<filename>")
 def serve_root_files(filename):
+    """ Links the csv tables for the index page """
     if filename.endswith('.csv'):
         return send_from_directory(CSV_DIR, filename)
     abort(404)
@@ -52,6 +58,7 @@ def serve_root_files(filename):
 # Serve result files from results/result_* folders
 @app.route("/<folder>/<path:filename>")
 def serve_result_direct(folder, filename):
+    """ Links the results folders for accesing the results """
     if not folder.startswith("result_"):
         abort(404)
     
@@ -65,6 +72,7 @@ def serve_result_direct(folder, filename):
 
 @app.route("/<folder>/")
 def serve_result_index(folder):
+    """ Links folders starting with 'result_' in the results folder for accesing the results """
     if not folder.startswith("result_"):
         abort(404)
     

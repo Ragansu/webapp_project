@@ -17,6 +17,7 @@ _DEFAULT_SAVE_DIR = os.path.join(current_dir, formatted_time)
 
 
 def set_default_save_dir(file_loc):
+    "To set the default save_dir"
     global _DEFAULT_SAVE_DIR
     if os.path.exists(file_loc):
         _DEFAULT_SAVE_DIR = file_loc
@@ -25,6 +26,7 @@ def set_default_save_dir(file_loc):
 
 
 def get_default_save_dir():
+    "To get the default save_dir"
     return _DEFAULT_SAVE_DIR
 
 
