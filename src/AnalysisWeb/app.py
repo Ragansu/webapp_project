@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os
-from flask import Flask, send_from_directory, abort, request, jsonify
+from flask import Flask, send_from_directory, abort, jsonify
 import argparse
 from importlib.resources import files
 
