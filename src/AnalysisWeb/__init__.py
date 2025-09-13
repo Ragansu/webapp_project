@@ -432,7 +432,6 @@ def save_table_html(df, title, filename):
 def image_gallery_to_html(
     images_data,
     titles=None,
-    directory=_DEFAULT_SAVE_DIR,
     output_file="image_gallery.html",
     file_title="Image Gallery",
 ):
@@ -521,11 +520,11 @@ class Sequencer:
     between the processes and update the status.
     """
 
-    def __init__(self, plots_data_file, date, model_type="", jobID=-1, plots_dir=None):
+    def __init__(self, plots_data_file, date, model_type="", job_id=-1, plots_dir=None):
 
         self.entry_dict = {
             "date": date,
-            "job_id": jobID,
+            "job_id": job_id,
             "type": model_type,
             "Status": "Launched",
             "score": "-",
