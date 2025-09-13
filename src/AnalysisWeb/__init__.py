@@ -51,7 +51,7 @@ def create_results_index(
         # Extract the base name (without test/holdout and extension)
         keys = file_groups.keys()
         key = (file_name.split("_")[-1]).split(".")[0]
-        if key in keys :
+        if key in keys:
             file_groups[key][file_name] = file_name
         else:
             if "misc" not in file_groups:
@@ -86,7 +86,7 @@ def create_results_index(
             <div class="files-grid">
     """
 
-    for group_name in file_groups.keys() :
+    for group_name in file_groups.keys():
 
         html_content += """
             <div class="category">
@@ -136,7 +136,7 @@ def create_results_index(
 def config_to_html(config, filename="config_report.html"):
     """Creates an HTML report of the configuration object with compact layout."""
 
-    html_content = f"""
+    html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -239,7 +239,7 @@ def config_to_html(config, filename="config_report.html"):
         """
 
         if dictionary:
-            html_content += f"""
+            html_content += """
                         <div class="scrollable">
                             <div class="dict-compact">
             """
@@ -516,7 +516,15 @@ def image_gallery_to_html(
 
 
 class Sequencer:
+    """
+    The `Sequencer` Class which helps maintain the CSV file system required
+    for the index page. For each process (eg. "fit", "valid", "analysis" ...)
+    set the result as a string (eg. "Fitting") use the Sequencer to connect
+    between the processes and update the status.
+    """
+
     def __init__(self, plots_data_file, date, model_type="", jobID=-1, plots_dir=None):
+
         self.entry_dict = {
             "date": date,
             "job_id": jobID,
@@ -571,7 +579,9 @@ class Sequencer:
         self.index_df.loc[self.next_index] = self.entry_dict
         self.index_df.to_csv(self.plots_data_file, index=False)
 
-    def __update__(self):
+    def __update__(self, status="Failed"):
+        """To update the status and save the df to csv"""
+        self.entry_dict["Status"] = status
         try:
             self.index_df.loc[self.next_index] = self.entry_dict
             self.index_df.to_csv(self.plots_data_file, index=False)
@@ -582,32 +592,32 @@ class Sequencer:
             print(f"Failed to save results: {save_error}")
 
     def add_algorithm(self, alg, **kwargs):
+        """Run and record the status of an algorythm"""
         try:
             status = alg(**kwargs)  # Pass all keyword arguments to the algorithm
-            self.entry_dict["Status"] = status
 
         except Exception as e:
             print(f"Error during {alg.__name__}: {e}")
-            self.entry_dict["Status"] = "Failed"
+            status = "Failed"
 
             raise
 
         finally:
-            self.__update__()
+            self.__update__(status)
 
     def add_score(self, tag, score):
-        self.entry_dict["Status"] = "ReValidation..."
+        """Update score"""
         self.entry_dict[tag] = score
-        self.__update__()
+        self.__update__("Scoring...")
 
     def start(self):
-        self.entry_dict["Status"] = "Running"
-        self.__update__()
+        """Set status to start"""
+        self.__update__("Running")
 
     def end(self):
-        self.entry_dict["Status"] = "Completed"
-        self.__update__()
+        """Set status to end"""
+        self.__update__("Completed")
 
     def cancel(self):
-        self.entry_dict["Status"] = "Cancelled"
-        self.__update__()
+        """Set status to calcelled"""
+        self.__update__("Cancelled")
