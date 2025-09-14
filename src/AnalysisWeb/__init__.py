@@ -15,7 +15,7 @@ current_dir = os.getcwd()
 # 3. Join the safe, formatted string
 _DEFAULT_SAVE_DIR = os.path.join(current_dir, formatted_time)
 
-__version__ = "0.0.1"
+__version__ = "0.0.3"
 
 def set_default_save_dir(file_loc):
     "To set the default save_dir"

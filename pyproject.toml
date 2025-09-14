@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.18.0"]  # Only build tools here
+requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "AnalysisWeb"
-version = "0.0.1"
+version = "0.0.3"
 authors = [
     { name = "Ragansu Chakkappai", email = "ragansu.chakkappai@universite-paris-saclay.fr" }
 ]
@@ -19,17 +19,9 @@ classifiers = [
 dependencies = [
     "Flask>=3.0.0",       
     "pandas>=2.2.2",          
-    "numpy>=1.26.4",       # (pandas dependency, but good to specify)
-    "requests>=2.31.0",         
-    # The following are in the standard library and should NOT be included:
-    # "os", "glob", "pathlib", "datetime", "warnings", "argparse"
+    "numpy>=1.26.4",
+    "requests>=2.31.0"
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/AnalysisWeb"]
-
-[tool.hatch.build]
-include = ["src/AnalysisWeb/templates/**/*", "src/AnalysisWeb/static/**/*"]
 
 [project.urls]
 Homepage = "https://github.com/Ragansu/webapp_project"
