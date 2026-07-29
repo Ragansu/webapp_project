@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/jpg" href="/static/higgs_pot.jpg">
+</head>
+<body>
+    <a href="index.html" class="home-button"> 🏠 Home</a>
+    <div class="report-container">
+        <div class="header">
+            <h1>{{ title }}</h1>
+        </div>
+        
+        <div class="{{ 'content-grid' if info_dict else 'content-grid-centered' }}">
+            <!-- Image Section -->
+            <div class="image-section">
+                <h2 class="section-title">Visualization</h2>
+                <div class="images-container">
+                    {% for img in base64_images %}
+                    <div class="image-item">
+                        <img src="data:image/png;base64,{{ img }}" alt="Analysis Plot {{ loop.index }}" class="plot-image">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Information Section -->
+            {% if info_dict %}
+            <div class="info-section">
+                <h2 class="section-title">Results Summary</h2>
+                <div class="info-grid">
+                    {% for key, value in info_dict.items() %}
+                    {% set value_type = 'value-number' if value is number else 
+                                        'value-string' if value is string else
+                                        'value-bool' if value is boolean else
+                                        'value-other' %}
+                    <div class="info-item">
+                        <div class="info-key">{{ key }}</div>
+                        <div class="info-value {{ value_type }}">
+                            {% if value is boolean %}
+                                {{ '✅ True' if value else '❌ False' }}
+                            {% else %}
+                                {{ value }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

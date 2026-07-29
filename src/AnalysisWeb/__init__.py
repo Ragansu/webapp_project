@@ -2,8 +2,18 @@ import os
 import glob
 from pathlib import Path
 from datetime import datetime
-import pandas as pd
+import resource
 import warnings
+from enum import Enum
+import json
+from jinja2 import Environment, FileSystemLoader
+
+import logging
+
+from .logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
 
@@ -14,6 +24,47 @@ current_dir = os.getcwd()
 
 # 3. Join the safe, formatted string
 _DEFAULT_SAVE_DIR = os.path.join(current_dir, formatted_time)
+repo_dir = os.path.dirname(os.path.abspath(__file__))
+
+class Status(Enum):
+    FAILED = "Failed"
+    SUCCESS = "Success"
+    SKIPPED = "Skipped"
+
+from pathlib import Path
+
+from flask import Flask
+
+from .routes import register_routes
+
+
+PACKAGE_DIR = Path(__file__).parent
+
+
+def create_app(results_dir, json_dir):
+
+    app = Flask(
+        __name__,
+        template_folder=str(PACKAGE_DIR / "templates"),
+        static_folder=str(PACKAGE_DIR / "static"),
+    )
+
+    app.config["RESULTS_DIR"] = Path(results_dir).resolve()
+    app.config["JSON_DIR"] = Path(json_dir).resolve()
+
+    app.config["RESULTS_DIR"].mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    app.config["JSON_DIR"].mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    register_routes(app)
+
+    return app
 
 
 def set_default_save_dir(file_loc):
@@ -28,312 +79,264 @@ def get_default_save_dir():
     return _DEFAULT_SAVE_DIR
 
 
+def get_memory_usage(stage=""):
+    # Max RSS (Linux KB → MB)
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    peak_mb = usage.ru_maxrss / 1024
+
+    # Current RSS
+    current_mb = None
+    with open("/proc/self/status") as f:
+        for line in f:
+            if line.startswith("VmRSS:"):
+                current_kb = int(line.split()[1])
+                current_mb = current_kb / 1024
+            if line.startswith("VmHWM:"):  # high-water mark (another peak measure)
+                pass
+
+    # System total RAM
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                total_kb = int(line.split()[1])
+                break
+    total_mb = total_kb / 1024
+
+    logger.info(
+        f"[{stage}] Current RAM: {current_mb:.2f} MB | "
+        f"Peak RAM: {peak_mb:.2f} MB | "
+        f"System RAM: {total_mb:.2f} MB"
+    )
+
+
+def memory_usage(func):
+    def wrapper(*args, **kwargs):
+        get_memory_usage(stage=f"Before {func.__name__}")
+        result = func(*args, **kwargs)
+        get_memory_usage(stage=f"After  {func.__name__}")
+        return result
+
+    return wrapper
+
 def create_results_index(
-    directory=_DEFAULT_SAVE_DIR, title="ML Analysis Results Index", file_groups={}
+    directory="_DEFAULT_SAVE_DIR", output_file="index.html", title="ML Analysis Results Index"
 ):
-    """Creates an HTML index page linking to all result files."""
-    output_file = ("index.html",)
-    if not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
+    """Creates an HTML index page linking to all result files using Jinja2 template."""
 
-    # Find all HTML files in the directory
-    html_files = glob.glob(os.path.join(directory, "*.html"))
+    # Setup Jinja2 environment
 
-    # Filter out the index file itself if it exists
-    html_files = [f for f in html_files if not f.endswith(output_file)]
+    root_dir = os.path.dirname(output_file)
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
 
-    # Group files by their base name pattern
+    top_folders = glob.glob(os.path.join(directory, "*/"))
+    folders = set(top_folders)  # These paths end with os.sep
+    folders.add(directory)
+    html_files = set()
+    processed_files = set()  # Track files we've already added
+
+    # For each folder, check if it has an index.html
+    for folder in folders:
+        index_path = os.path.join(folder, "index.html")
+
+        if os.path.exists(index_path) and not (index_path == output_file):
+            if index_path not in processed_files:
+                html_files.add(index_path)
+                processed_files.add(index_path)
+        else:
+            folder_files = glob.glob(os.path.join(folder, "*.html"))
+            for file_path in folder_files:
+                if file_path not in processed_files:
+                    html_files.add(file_path)
+                    processed_files.add(file_path)
+
+    list(html_files)
+    html_files = sorted(list(html_files))
+
+    # Separate files into categories
+    nll_groups = {}
+    density_ratios = {}
+    misc_files = {}
+    index_files = {}
 
     for file_path in html_files:
         file_name = os.path.basename(file_path)
-        # Extract the base name (without test/holdout and extension)
-        keys = file_groups.keys()
-        key = (file_name.split("_")[-1]).split(".")[0]
-        if key in keys:
-            file_groups[key][file_name] = file_name
-        else:
-            if "misc" not in file_groups:
-                file_groups["misc"] = {}
-            file_groups["misc"][file_name] = file_name
-
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <a href="/" class="home-button"> 🏠 Home</a>
-    <div class="index-container">
-        <div class="header">
-            <h1>{title}</h1>
-            <p>Complete overview of all generated analysis reports</p>
-        </div>
-        
-        <div class="stats">
-            <strong>Total Files:</strong> {len(html_files)} | 
-            <strong>Groups:</strong> {len(file_groups)} | 
-            <strong>Generated:</strong> {Path(output_file).stem}
-        </div>
-"""
-
-    # NLL Results Section
-    html_content += """
-        <div class="category">
-            <h2 class="category-title">NLL Results</h2>
-            <div class="files-grid">
-    """
-
-    for group_name in file_groups.keys():
-
-        html_content += """
-            <div class="category">
-                <h2 class="category-title">Density Ratios</h2>
-                <div class="files-grid">
-        """
-
-        for file_name in file_groups[group_name].values():
-            title = (
-                file_name.replace(f"_{group_name}.html", "").replace("_", " ").title()
+        relative_path = os.path.relpath(file_path, root_dir)
+        logger.debug(f"Relative Path : {relative_path}")
+        logger.debug(f"Root Path : {root_dir}")
+        if "NLLs_" in file_name:
+            # Extract the base name (without test/holdout and extension)
+            base_name = (
+                file_name.replace("NLLs_", "")
+                .replace("_holdout_", "")
+                .replace("_test_", "")
+                .replace(".html", "")
             )
-            html_content += f"""
-                    <div class="file-group">
-                        <a href="{file_name}" class="file-link">
-                            {title} Density Ratios
-                            <span class="file-type">({file_name})</span>
-                        </a>
-                    </div>
-            """
 
-        html_content += """
-                </div>
-            </div>
-        """
+            if base_name not in nll_groups:
+                nll_groups[base_name] = {}
 
-    # JavaScript for comparison functionality
-    html_content += """
-        <script>
-        function openComparison(file1, file2) {
-            // Open both files in new tabs for comparison
-            window.open(file1, '_blank');
-            window.open(file2, '_blank');
-        }
-        </script>
-    </body>
-    </html>
-    """
-    output_file_path = os.path.join(directory, output_file)
+            if "holdout" in file_name:
+                nll_groups[base_name]["holdout"] = relative_path
+            elif "test" in file_name:
+                nll_groups[base_name]["test"] = relative_path
+
+        elif file_name.endswith("_density_ratios.html"):
+            logger.debug(f"File Name : {file_name}")
+            density_ratios[file_name] = relative_path
+
+        elif file_name.endswith("index.html"):
+            parent_folder = os.path.basename(os.path.dirname(relative_path))
+            base_name = file_name.replace("index.html", parent_folder)
+            logger.debug(f"Base Name : {base_name}")
+            index_files[base_name] = relative_path
+        else:
+
+            base_name = file_name.replace("_", " ").replace(".html", "")
+            logger.debug(f"Base Name : {base_name}")
+            misc_files[base_name] = relative_path
+
+    # Prepare data for template
+    template_data = {
+        "title": title,
+        "html_files": html_files,
+        "file_groups": {
+            "nll_groups": nll_groups,
+            "density_ratios": density_ratios,
+            "index_files": index_files,
+            "misc_files": misc_files,
+        },
+        "output_file_stem": Path(output_file).stem,
+    }
+
+    # Load and render template
+    template = env.get_template("index_template.html")
+    html_content = template.render(**template_data)
+
     # Write to file
-    with open(output_file_path, "w") as f:
+    with open(output_file, "w") as f:
         f.write(html_content)
 
-    print(f"Index created: {output_file_path}")
-    print(f"Total files indexed: {len(html_files)}")
+    logger.info(f"Index created: {output_file}")
+    logger.info(f"Total files indexed: {len(html_files)}")
+    logger.info(f"NLL groups: {len(nll_groups)}")
+    logger.info(f"Density ratio files: {len(density_ratios)}")
+    logger.info(f"Index files: {len(index_files)}")
+    logger.info(f"Miscellaneous files: {len(misc_files)}")
+
+    return Status.SUCCESS
 
 
 def config_to_html(config, filename="config_report.html"):
     """Creates an HTML report of the configuration object with compact layout."""
 
-    html_content = """
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <a href="index.html" class="home-button"> 🏠 Home</a>
-    <div class="config-container">
-        <div class="header">
-            <h1>Model Configuration</h1>
-        </div>
-"""
+    # Create Jinja2 environment
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
 
-    # Simple attributes section - now in a grid
-    html_content += """
-        <div class="section">
-            <h2 class="section-title">Basic Configuration</h2>
-            <div class="attr-grid">
-    """
-
+    # Prepare data for template
     list_attrs = []
-    simple_attrs = []  # Just attribute names
+    simple_attrs = []  # List of tuples (name, value)
     dict_attrs = {}
+    dictionary_data = {}
 
     for attr_name, attr_value in vars(config).items():
         if attr_name in config.exclude_list:
             continue
+
         if isinstance(attr_value, list):
             list_attrs.append((attr_name, attr_value))
+
         elif isinstance(attr_value, dict):
-            dict_attrs[attr_name] = attr_name
+            if attr_name == "CLF_config":
+                # Flatten CLF_config dictionary with prefixed keys
+                for key, value in attr_value.items():
+                    prefixed_key = f"CLF_config.{key}"
+                    dict_attrs[prefixed_key] = prefixed_key
+                    dictionary_data[prefixed_key] = value
+            else:
+                # Store other dictionaries as-is
+                dict_attrs[attr_name] = attr_name
+                dictionary_data[attr_name] = attr_value
+
         else:
-            simple_attrs.append(attr_name)  # Store only the name
+            simple_attrs.append((attr_name, attr_value))
 
-    # Then use getattr() as in your original code
-    for attr_name in simple_attrs:
-        value = getattr(config, attr_name, "N/A")
-        html_content += f"""
-                <div class="attr-item">
-                    <div class="attr-name">{attr_name}</div>
-                    <div class="attr-value">{value}</div>
-                </div>
-        """
+    # Render template
+    template = env.get_template("config_template.html")
+    html_content = template.render(
+        simple_attrs=simple_attrs,
+        list_attrs=list_attrs,
+        dict_attrs=dict_attrs,
+        dictionary_data=dictionary_data,
+    )
 
-    html_content += """
-            </div>
-        </div>
+    # Save to file
+    with open(filename, "w") as f:
+        f.write(html_content)
+
+    return Status.SUCCESS
+
+
+def text_report_to_html(text, title="Report", filename="text_report.html"):
+    """Creates an HTML report with a text block using Jinja2.
+
+    Args:
+        text: The text content to include in the report
+        title: The title of the report
+        filename: The output HTML filename
     """
 
-    # Lists section - with wrapped columns
-    html_content += """
-        <div class="section">
-            <h2 class="section-title">Lists</h2>
-    """
+    # Setup Jinja2 environment
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
 
-    for attr_name, attr_value in list_attrs:
+    # Prepare data for template
+    template_data = {
+        "title": title,
+        "text": text,
+    }
 
-        html_content += f"""
-            <div class="attr-item">
-                <div class="attr-name">{attr_name}</div>
-                <div class="attr-value">
-                    <div class="compact-list">
-        """
-
-        # Display items in a compact scrollable list
-        for i, item in enumerate(attr_value):
-            html_content += f"<pre>{item}</pre>"
-            if i >= 20:  # Limit display to 20 items with ellipsis
-                html_content += f"<pre>... and {len(attr_value) - 20} more</pre>"
-                break
-
-        html_content += f"""
-                    </div>
-                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
-                        Total items: {len(attr_value)}
-                    </div>
-                </div>
-            </div>
-        """
-
-    html_content += """
-        </div>
-    """
-
-    # Dictionaries section - compact display
-    html_content += """
-        <div class="section">
-            <h2 class="section-title">Dictionaries</h2>
-            <div class="attr-grid">
-    """
-
-    for attr, display_name in dict_attrs.items():
-        dictionary = getattr(config, attr, {})
-        html_content += f"""
-                <div class="attr-item">
-                    <div class="attr-name">{display_name}</div>
-                    <div class="attr-value">
-        """
-
-        if dictionary:
-            html_content += """
-                        <div class="scrollable">
-                            <div class="dict-compact">
-            """
-
-            for key, value in dictionary.items():
-                html_content += f"""
-                                    <div class="dict-item-compact">
-                                        <span class="dict-key-compact">{key}:</span>
-                                        <span>{value}</span>
-                                    </div>
-                """
-            html_content += f"""
-                            </div>
-                            <div style="font-size: 0.8em; color: #666; margin-top: 8px;">
-                                Total entries: {len(dictionary)}
-                            </div>
-                        </div>
-            """
-        else:
-            html_content += "Empty dictionary"
-
-        html_content += """
-                    </div>
-                </div>
-        """
-
-    html_content += """
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-"""
+    # Load and render template
+    template = env.get_template("text_report_template.html")
+    html_content = template.render(**template_data)
 
     # Write to file
     with open(filename, "w") as f:
         f.write(html_content)
 
+    return filename
+
 
 def image_report_to_html(
-    base64_image, info_dict, title="Analysis Results", filename="image_report.html"
+    base64_images,
+    info_dict=None,
+    title="Analysis Results",
+    filename="image_report.html",
 ):
-    """Creates an HTML report with a base64 image and dictionary information."""
+    """Creates an HTML report with base64 images and optional dictionary information using Jinja2.
 
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <a href="index.html" class="home-button"> 🏠 Home</a>
-    <div class="report-container">
-        <div class="header">
-            <h1>{title}</h1>
-        </div>
-        
-        <div class="content-grid">
-            <!-- Image Section -->
-            <div class="image-section">
-                <h2 class="section-title">Visualization</h2>
-                <img src="data:image/png;base64,{base64_image}" alt="Analysis Plot" class="plot-image">
-            </div>
-            
-            <!-- Information Section -->
-            <div class="info-section">
-                <h2 class="section-title">Results Summary</h2>
-                <div class="info-grid">
-"""
+    Args:
+        base64_images: A single base64 image string or list of base64 image strings
+        info_dict: Optional dictionary with information to display
+        title: Report title
+        filename: Output HTML filename
+    """
 
-    # Add dictionary items to the info grid
-    for key, value in info_dict.items():
-        # Determine value type for styling
-        value_type = "value-other"
-        if isinstance(value, (int, float)):
-            value_type = "value-number"
-        elif isinstance(value, str):
-            value_type = "value-string"
-        elif isinstance(value, bool):
-            value_type = "value-bool"
+    # Setup Jinja2 environment
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
 
-        html_content += f"""
-                    <div class="info-item">
-                        <div class="info-key">{key}</div>
-                        <div class="info-value {value_type}">{value}</div>
-                    </div>
-        """
+    # Handle single image or list of images
+    if isinstance(base64_images, str):
+        base64_images = [base64_images]
 
-    html_content += """
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-"""
+    # Prepare data for template
+    template_data = {
+        "title": title,
+        "base64_images": base64_images,
+        "info_dict": info_dict,
+    }
+
+    # Load and render template
+    template = env.get_template("image_report_template.html")
+    html_content = template.render(**template_data)
 
     # Write to file
     with open(filename, "w") as f:
@@ -343,273 +346,353 @@ def image_report_to_html(
 
 
 def save_table_html(df, title, filename):
-    """Saves a DataFrame as an HTML file using template markers for clean appending."""
+    """Saves a DataFrame as an HTML file using Jinja2 templates for clean appending."""
+
+    # Setup Jinja2 environment
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
 
     # Generate table HTML
     table_html = df.to_html(
         index=False, border=0, justify="center", classes="dataframe"
     )
 
-    # Create the new table section
-    new_section = f"""
-        <div class="section">
-            <a href="index.html" class="home-button"> 🏠 Home</a>
-            <div class="center">
-                <h2>{title}</h2>
-                {table_html}
-            </div>
-        </div>
-    """
+    # Data file to store sections
+    data_file = os.path.splitext(filename)[0] + "_sections.json"
 
-    if os.path.exists(filename):
+    # Create new section
+    new_section = {
+        "title": title,
+        "table_html": table_html,
+        "created": datetime.now().isoformat(),
+    }
+
+    if os.path.exists(filename) and os.path.exists(data_file):
         try:
-            # Read existing content
-            with open(filename, "r") as f:
-                content = f.read()
+            # Load existing sections
+            with open(data_file, "r") as f:
+                sections = json.load(f)
 
-            # Insert new section before the content end marker
-            if "<!-- CONTENT_END -->" in content:
-                content = content.replace(
-                    "<!-- CONTENT_END -->",
-                    new_section + "\n        <!-- CONTENT_END -->",
-                )
-                with open(filename, "w") as f:
-                    f.write(content)
+            # Check if section with same title already exists
+            existing_titles = [s.get("title") for s in sections]
+            if title in existing_titles:
+                # Update existing section
+                for i, section in enumerate(sections):
+                    if section.get("title") == title:
+                        sections[i] = new_section
+                        break
             else:
-                # File exists but doesn't have our markers, recreate it
-                raise ValueError("Invalid file format")
+                # Append new section
+                sections.append(new_section)
 
-        except (ValueError, Exception):
-            full_html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <a href="index.html" class="home-button"> 🏠 Home</a>
-    <div class="table-container">
-        <div class="header">
-            <h1>Dataset Analysis Report</h1>
-            <p>Comprehensive analysis of all datasets</p>
-        </div>
-        <!-- CONTENT_START -->
-        {new_section}
-        <!-- CONTENT_END -->
-        <div class="timestamp">
-            Report generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        </div>
-    </div>
-</body>
-</html>"""
-            with open(filename, "w") as f:
-                f.write(full_html)
+        except (json.JSONDecodeError, FileNotFoundError):
+            # Start fresh if data file is corrupted
+            sections = [new_section]
     else:
-        full_html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <a href="index.html" class="home-button"> 🏠 Home</a>
-    <div class="table-container">
-        <div class="header">
-            <h1>Dataset Analysis Report</h1>
-            <p>Comprehensive analysis of all datasets</p>
-        </div>
-        <!-- CONTENT_START -->
-        {new_section}
-        <!-- CONTENT_END -->
-        <div class="timestamp">
-            Report generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        </div>
-    </div>
-</body>
-</html>"""
-        with open(filename, "w") as f:
-            f.write(full_html)
+        # Start fresh
+        sections = [new_section]
+
+    # Save sections to data file
+    with open(data_file, "w") as f:
+        json.dump(sections, f, indent=2)
+
+    # Render template with all sections
+    template_data = {
+        "sections": sections,
+        "generation_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    template = env.get_template("table_section_template.html")
+    html_content = template.render(**template_data)
+
+    # Write HTML file
+    with open(filename, "w") as f:
+        f.write(html_content)
+
+    return filename
 
 
 def image_gallery_to_html(
-    images_data,
+    file_paths,
     titles=None,
     output_file="image_gallery.html",
     file_title="Image Gallery",
+    dictionary_data={},
+    index_dir="index.html",
 ):
     """
-    Create an HTML page with multiple base64 images in a gallery layout.
+    Create an HTML page with multiple base64 images in a gallery layout using Jinja2.
 
     Args:
         images_data: List of base64 encoded image strings OR BytesIO objects
         titles: List of titles for each image (optional)
         output_file: Output HTML filename
+        file_title: Page title
     """
-    from datetime import datetime
-    import base64
 
+    # Setup Jinja2 environment
+    env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
+
+    # Prepare image list
     if titles is None:
-        titles = [f"Image {i+1}" for i in range(len(images_data))]
+        titles = [f"Image {i+1}" for i in range(len(file_paths))]
 
-    # Build image cards
-    image_cards = []
-    for i, (image_data, title) in enumerate(zip(images_data, titles)):
-        # Handle both base64 strings and BytesIO objects
-        if hasattr(image_data, "getvalue"):  # It's a BytesIO object
-            # Convert BytesIO to base64 string
-            image_data.seek(0)  # Reset position to start
-            image_base64 = base64.b64encode(image_data.getvalue()).decode("utf-8")
-        else:
-            # Assume it's already base64 string
-            image_base64 = image_data
+    images = []
+    for i, (file_path, title) in enumerate(zip(file_paths, titles)):
+        images.append({"file_path": file_path, "title": title, "index": i + 1})
 
-        image_card = f"""
-        <div class="image-card">
-            <div class="image-wrapper">
-                <img src="data:image/png;base64,{image_base64}" 
-                     alt="{title}" 
-                     class="gallery-image">
-            </div>
-            <div class="image-caption">
-                <div class="image-title">{title}</div>
-                <div class="image-meta">Image {i+1} of {len(images_data)}</div>
-            </div>
-        </div>
-        """
-        image_cards.append(image_card)
+    # Prepare template data
+    template_data = {
+        "file_title": file_title,
+        "images": images,
+        "generation_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "dictionary_data": dictionary_data,
+        "index_dir": index_dir,
+    }
 
-    # Combine all image cards
-    gallery_html = f"""
-    <div class="gallery-container">
-        {"".join(image_cards)}
-    </div>
-    """
-
-    # Create complete HTML
-    full_html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="/static/style.css">
-    <title>{file_title}</title>
-</head>
-<body>
-    <a href="index.html" class="home-button"> 🏠 Home</a>
-    <div class="table-container">
-        <div class="header">
-            <h1>Image Gallery</h1>
-            <p>Total images: {len(images_data)}</p>
-        </div>
-        {gallery_html}
-        <div class="timestamp">
-            Gallery generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        </div>
-    </div>
-</body>
-</html>"""
+    # Load and render template
+    template = env.get_template("image_gallery_template.html")
+    html_content = template.render(**template_data)
 
     # Write to file
     with open(output_file, "w") as f:
-        f.write(full_html)
+        f.write(html_content)
 
     return output_file
 
 
 class Sequencer:
-    """
-    The `Sequencer` Class which helps maintain the CSV file system required
-    for the index page. For each process (eg. "fit", "valid", "analysis" ...)
-    set the result as a string (eg. "Fitting") use the Sequencer to connect
-    between the processes and update the status.
-    """
+    def __init__(
+        self,
+        date,
+        model_type="",
+        jobID=-1,
+        plots_dir=None,
+        run_setting="retest",
+    ):
 
-    def __init__(self, plots_data_file, date, model_type="", job_id=-1, plots_dir=None):
+        self.json_dir = os.path.join(repo_dir, "json_file")
+        os.makedirs(self.json_dir, exist_ok=True)
 
-        self.entry_dict = {
+        self.entry_file = os.path.join(self.json_dir, f"{date}.json")
+        self.index_file = os.path.join(repo_dir, "static/index.json")
+
+        self.__entry_dict__ = {
             "date": date,
-            "job_id": job_id,
+            "job_id": jobID,
             "type": model_type,
+            "run_time": 0,
             "Status": "Launched",
-            "score": "-",
+            "No_bkg": "-",
+            "All_bkg": "-",
+            "singleH": "-",
+            "run_setting": run_setting,
             "link": "/",
         }
 
-        try:
-            self.index_df = pd.read_csv(plots_data_file)
-        except FileNotFoundError:
-            self.index_df = pd.DataFrame(
-                columns=[
-                    "date",
-                    "type",
-                    "job_id",
-                    "Status",
-                    "score",
-                    "link",
-                ]
-            )
+        self.steps = []
 
-            self.plots_data_file = plots_data_file
-            self.next_index = len(self.index_df)
-            self.index_df.loc[self.next_index] = self.entry_dict
-            self.index_df.to_csv(self.plots_data_file, index=False)
-            return
+        self.start_time = 0
+        self.last_time_stamp = datetime.now()
 
-        self.plots_data_file = plots_data_file
+        # Load existing entry if it exists
+        if os.path.exists(self.entry_file):
+            try:
+                with open(self.entry_file, "r", encoding="utf-8") as f:
+                    self.__entry_dict__.update(json.load(f))
+            except Exception as e:
+                logger.warning(f"Failed to read existing entry JSON: {e}")
 
-        matches = self.index_df.index[self.index_df["date"] == date]
-
-        if not matches.empty:
-            # Take the first matching index (or use [-1] for the last match)
-            self.next_index = matches[0]
-            self.entry_dict = self.index_df.loc[self.next_index].to_dict()
-
-        else:
-            # No match → append to the end
-            self.next_index = len(self.index_df)
+        # Plot handling (unchanged)
         if plots_dir is not None:
-            self.entry_dict["link"] = os.path.basename(plots_dir) + "/index.html"
+            self.__entry_dict__["link"] = os.path.basename(plots_dir) + "/index.html"
             self.plots_dir = plots_dir
-            create_results_index(self.plots_dir, title=os.path.basename(self.plots_dir))
-        else:
-            self.entry_dict["link"] = "/"
+            self.output_html = os.path.join(plots_dir, "index.html")
+            create_results_index(
+                self.plots_dir,
+                self.output_html,
+                title=os.path.basename(self.plots_dir),
+            )
+            self.timerecord = os.path.join(plots_dir, "time_record.csv")
+            self.fieldnames = ["status", "time", "duration"]
 
-        self.index_df.loc[self.next_index] = self.entry_dict
-        self.index_df.to_csv(self.plots_data_file, index=False)
+        # Initial write
+        self._write_entry()
+        self._update_index()
 
-    def __update__(self, status="Failed"):
-        """To update the status and save the df to csv"""
-        self.entry_dict["Status"] = status
+    # ------------------------
+    # Internal helpers
+    # ------------------------
+
+    def _write_entry(self):
         try:
-            self.index_df.loc[self.next_index] = self.entry_dict
-            self.index_df.to_csv(self.plots_data_file, index=False)
-            create_results_index(self.plots_dir, title=os.path.basename(self.plots_dir))
-        except Exception as save_error:
-            print(f"Failed to save results: {save_error}")
+            with open(self.entry_file, "w", encoding="utf-8") as f:
+                json.dump(self.__entry_dict__, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to write entry JSON: {e}")
 
-    def add_algorithm(self, alg, **kwargs):
-        """Run and record the status of an algorythm"""
+    def _update_index(self):
         try:
-            status = alg(**kwargs)  # Pass all keyword arguments to the algorithm
+            if os.path.exists(self.index_file):
+                with open(self.index_file, "r", encoding="utf-8") as f:
+                    index = json.load(f)
+            else:
+                index = []
+
+            filename = os.path.basename(self.entry_file)
+            if filename not in index:
+                index.append(filename)
+
+            # newest first (by filename / date)
+            index = sorted(index, reverse=True)
+
+            with open(self.index_file, "w", encoding="utf-8") as f:
+                json.dump(index, f, indent=2)
 
         except Exception as e:
-            print(f"Error during {alg.__name__}: {e}")
-            status = "Failed"
+            logger.error(f"Failed to update index.json: {e}")
 
-            raise
+    # ------------------------
+    # Public update hook
+    # ------------------------
 
+    def update(self, status=""):
+        if self.start_time:
+            self.__entry_dict__["run_time"] = (
+                datetime.now() - self.start_time
+            ).total_seconds()
+
+        self.__entry_dict__["Status"] = status
+        self._write_entry()
+
+        # Regenerate HTML if needed
+        try:
+            create_results_index(
+                self.plots_dir,
+                self.output_html,
+                title=os.path.basename(self.plots_dir),
+            )
+        except Exception as e:
+            logger.error(f"Failed to regenerate HTML: {e}")
+
+        # Append time record (unchanged CSV logging)
+        try:
+            now = datetime.now()
+            duration = now - self.last_time_stamp
+
+            # Convert timedelta to HH:MM:SS
+            total_seconds = int(duration.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+
+            record = {
+                "status": self.__entry_dict__["Status"],
+                "time": now.strftime("%H:%M:%S"),
+                "duration": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+            }
+
+            self.last_time_stamp = now
+
+            file_exists = os.path.exists(self.timerecord)
+            with open(self.timerecord, "a", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(record)
+
+        except Exception as e:
+            logger.error(f"Failed to log time record: {e}")
+
+    @staticmethod
+    def create_substep(func, *args, name=None, aux=False, **kwargs):
+
+        if "data_label" in kwargs:
+            data_label = f"({kwargs['data_label']})"
+
+        else:
+            data_label = ""
+
+        substep = {
+            "name": name or func.__qualname__ + data_label,
+            "aux": aux,
+            "func": func,
+            "args": args,
+            "kwargs": kwargs,
+        }
+        return substep
+
+    def run_step(self, step):
+
+        func = step["func"]
+        args = step["args"]
+        kwargs = step["kwargs"]
+        name = step["name"]
+
+        get_memory_usage(stage=f"Before {name}")
+
+        try:
+            status = func(*args, **kwargs).value  # Assuming func returns a Status enum
+
+            status = status + " | " + name
+
+        except Exception as e:
+            logger.error(f"Error during {name}: {e}")
+            status = Status.FAILED.value + " | " + name
+
+            raise e
         finally:
-            self.__update__(status)
+            get_memory_usage(stage=f"After  {name}")
+            self.update(status=status)
+
+    def add_subsequence(self, func, *args, **kwargs):
+        subsequence = func(*args, **kwargs)
+        self.steps.extend(subsequence)
+
+    def add_algorithm(self, func, *args, name=None, aux=False, **kwargs):
+        self.steps.append(
+            self.create_substep(func, *args, name=name, aux=aux, **kwargs)
+        )
+
+    def print_sequence(self):
+        """Return a formatted string of the sequence to be executed."""
+        width = 85
+        title = "Sequence to be executed"
+        header = [
+            "┌" + "─" * (width) + "┐",
+            f"│{title.center(width)}│",
+            "│" + "─" * width + "│",
+        ]
+
+        main_steps = [step for i, step in enumerate(self.steps) if not step["aux"]]
+
+        steps = [
+            f"│ Step - {i:3} {step['name']}".ljust(width) + " │"
+            for i, step in enumerate(main_steps)
+        ]
+
+        footer = ["└" + "─" * width + "┘\n"]
+
+        sequence_str = "\n".join(header + steps + footer)
+
+        print(sequence_str)
+
+        return sequence_str
+
+    def run(self):
+        self.update(status="Running")
+        for step in self.steps:
+            self.run_step(step)
 
     def add_score(self, tag, score):
-        """Update score"""
-        self.entry_dict[tag] = score
-        self.__update__("Scoring...")
+        self.__entry_dict__[tag] = np.round(score, 3)
+        self.update(status=f"Added Score for {tag}")
 
     def start(self):
-        """Set status to start"""
-        self.__update__("Running")
+        self.update(status="Setting Up")
+        self.start_time = datetime.now()
 
     def end(self):
-        """Set status to end"""
-        self.__update__("Completed")
+        self.update("Completed")
 
     def cancel(self):
-        """Set status to calcelled"""
-        self.__update__("Cancelled")
+        self.update("Cancelled")

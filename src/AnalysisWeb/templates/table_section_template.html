@@ -1,0 +1,12 @@
+{% extends "table_report_base.html" %}
+
+{% block content %}
+    {% for section in sections %}
+    <div class="section">
+        <div class="center">
+            <h2>{{ section.title }}</h2>
+            {{ section.table_html|safe }}
+        </div>
+    </div>
+    {% endfor %}
+{% endblock %}
