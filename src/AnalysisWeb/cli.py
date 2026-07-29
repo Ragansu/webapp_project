@@ -24,6 +24,12 @@ def main():
     )
 
     parser.add_argument(
+        "--config",
+        default=None,
+        help="Dashboard configuration YAML file",
+    )
+
+    parser.add_argument(
         "--port",
         default=5088,
         type=int,
@@ -34,8 +40,9 @@ def main():
 
 
     app = create_app(
-        results_dir=args.results_dir,
-        json_dir=args.json_dir,
+        args.results_dir,
+        args.json_dir,
+        args.config,
     )
 
 

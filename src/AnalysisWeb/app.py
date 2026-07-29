@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from flask import Flask
+import yaml
 
 from .routes import register_routes
 
@@ -8,26 +9,40 @@ from .routes import register_routes
 PACKAGE_DIR = Path(__file__).parent
 
 
-def create_app(results_dir, json_dir):
 
+def load_config(filename):
+
+    path = Path(filename)
+
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Config file not found: {filename}"
+        )
+
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+def create_app(
+    results_dir,
+    json_dir,
+    config_file=None,
+):
     app = Flask(
         __name__,
         template_folder=str(PACKAGE_DIR / "templates"),
         static_folder=str(PACKAGE_DIR / "static"),
     )
 
-    app.config["RESULTS_DIR"] = Path(results_dir).resolve()
-    app.config["JSON_DIR"] = Path(json_dir).resolve()
+    app.config["RESULTS_DIR"] = Path(results_dir)
+    app.config["JSON_DIR"] = Path(json_dir)
 
-    app.config["RESULTS_DIR"].mkdir(
-        parents=True,
-        exist_ok=True,
-    )
 
-    app.config["JSON_DIR"].mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    if config_file:
+        app.config["DASHBOARD_CONFIG"] = load_config(
+            config_file
+        )
+    else:
+        app.config["DASHBOARD_CONFIG"] = {}
 
     register_routes(app)
 

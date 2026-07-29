@@ -32,7 +32,8 @@ def register_routes(app):
     def home():
 
         return render_template(
-            "index.html"
+            "index.html",
+            config=current_app.config["DASHBOARD_CONFIG"],
         )
 
 
