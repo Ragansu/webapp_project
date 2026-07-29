@@ -374,35 +374,27 @@ def image_gallery_to_html(
 
     return output_file
 
+DEFAULT_ENTRY = {
+            "date": formatted_time,
+            "run_time": 0,
+            "Status": "Launched",
+            "link": "/",
+        }
 
 class Sequencer:
     def __init__(
         self,
-        date,
-        model_type="",
-        jobID=-1,
         plots_dir=None,
-        run_setting="retest",
+        initial_entry=DEFAULT_ENTRY
     ):
 
         self.json_dir = os.path.join(repo_dir, "json_file")
         os.makedirs(self.json_dir, exist_ok=True)
 
-        self.entry_file = os.path.join(self.json_dir, f"{date}.json")
+        self.entry_file = os.path.join(self.json_dir, f"{initial_entry["date"]}.json")
         self.index_file = os.path.join(repo_dir, "static/index.json")
 
-        self.__entry_dict__ = {
-            "date": date,
-            "job_id": jobID,
-            "type": model_type,
-            "run_time": 0,
-            "Status": "Launched",
-            "No_bkg": "-",
-            "All_bkg": "-",
-            "singleH": "-",
-            "run_setting": run_setting,
-            "link": "/",
-        }
+        self.__entry_dict__ = initial_entry
 
         self.steps = []
 
