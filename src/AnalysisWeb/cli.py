@@ -36,6 +36,12 @@ def main():
         help="Web port",
     )
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Run in debug mode",
+    )
+
     args = parser.parse_args()
 
 
@@ -63,4 +69,5 @@ def main():
     app.run(
         host="127.0.0.1",
         port=args.port,
+        debug=args.debug,
     )

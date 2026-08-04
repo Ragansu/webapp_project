@@ -238,18 +238,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadDataFromJSON() {
+
         loading.style.display = 'block';
         errorDiv.style.display = 'none';
         table.style.display = 'none';
 
-        fetch('/static/index.json?' + Date.now())
+        console.log("DASHBOARD_CONFIG =", DASHBOARD_CONFIG);
+
+        const jsonFile = DASHBOARD_CONFIG.data.index_file;
+
+        fetch(`/json/${jsonFile}?${Date.now()}`)
             .then(res => {
+
                 if (!res.ok) {
-                    throw new Error('Failed to load index.json');
+                    throw new Error(`Failed to load ${jsonFile}`);
                 }
+
                 return res.json();
             })
             .then(files => {
+
                 if (!files.length) {
                     showError('No JSON entries found');
                     return;
@@ -261,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadPage(currentPage);
 
                 table.style.display = 'table';
+
             })
             .catch(err => {
                 showError('Error loading JSON data: ' + err.message);
@@ -279,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return Promise.resolve(dataCache.get(file));
             }
 
-            return fetch(`/json_file/${file}`)
+            return fetch(`/json/${file}`)
                 .then(r => {
                     if (!r.ok) {
                         throw new Error(`Failed to load ${file}`);
@@ -373,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         fileIndex.slice(start, end).forEach(file => {
             if (!dataCache.has(file)) {
-                fetch(`/json_file/${file}`)
+                return fetch(`/json/${file}`)
                     .then(r => r.json())
                     .then(json => dataCache.set(file, json))
                     .catch(() => { });
@@ -646,6 +655,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    console.log("Reached end of script!"); // If this doesn't log, code crashed above it
     // Set up reload button
     reloadButton.addEventListener('click', loadDataFromJSON);
 
