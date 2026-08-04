@@ -55,61 +55,68 @@ document.addEventListener('DOMContentLoaded', function () {
     updateClock();
 
     // Function to execute shell script with option selection
-    function executeScript(rowData) {
+    async function executeScript(rowData) {
+
         // Extract the model type from the row data
         const modelType = rowData.type;
 
         // If model type is "comparison", directly send comparison_job request
         if (modelType === "comparison") {
             sendComparisonJobRequest(rowData);
-            return; // Exit the function early
+            return;
         }
 
-        // Create custom modal/dialog for option selection
-        const modal = document.createElement('div');
-        modal.className = 'action-modal-overlay';
+        // Create modal container
+        const modal = document.createElement("div");
+        modal.className = "action-modal-overlay";
 
-        modal.innerHTML = `
-            <div class="action-modal-content">
-                <h3>Select Action for ${modelType}</h3>
-                <p>Choose what you want to do with this model:</p>
-                
-                    <div class="checkbox-container" style="margin-bottom: 20px;">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-                            
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="syst-checkbox">
-                                Run with systematics
-                            </label>
+        try {
+            const response = await fetch("/action-modal");
 
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="float-checkbox">
-                                Run with Bkg Floating
-                            </label>
+            if (!response.ok) {
+                throw new Error("Failed to load action modal template");
+            }
 
-                        </div>
-                    </div>
+            modal.innerHTML = await response.text();
 
-                <div class="action-button-container">
-                    <button class="action-btn action-btn-rerun" data-action="re-run">Re-run</button>
-                    <button class="action-btn action-btn-retrain" data-action="re-train">Re-train</button>
-                    <button class="action-btn action-btn-retest" data-action="re-test">Re-test</button>
-                </div>
-                <button class="action-btn action-btn-cancel">Cancel</button>
-            </div>
-        `;
+        } catch (error) {
+            console.error(error);
+            return;
+        }
+
+        // Insert dynamic model type
+        const modelTitle = modal.querySelector("#modal-model-type");
+        if (modelTitle) {
+            modelTitle.textContent = modelType;
+        }
 
         // Add event listeners to buttons
-        const buttons = modal.querySelectorAll('.action-btn');
+        const buttons = modal.querySelectorAll(".action-btn");
+
         buttons.forEach(button => {
-            if (button.classList.contains('action-btn-cancel')) {
-                button.addEventListener('click', closeModal);
+
+            if (button.classList.contains("action-btn-cancel")) {
+
+                button.addEventListener("click", closeModal);
+
             } else {
-                const action = button.getAttribute('data-action');
-                button.addEventListener('click', () => {
-                    const isSystChecked = modal.querySelector('#syst-checkbox').checked;
-                    const isFloatChecked = modal.querySelector('#float-checkbox').checked;
-                    handleOption(action, modelType, isSystChecked, isFloatChecked);
+
+                const action = button.getAttribute("data-action");
+
+                button.addEventListener("click", () => {
+
+                    const isSystChecked =
+                        modal.querySelector("#syst-checkbox").checked;
+
+                    const isFloatChecked =
+                        modal.querySelector("#float-checkbox").checked;
+
+                    handleOption(
+                        action,
+                        modelType,
+                        isSystChecked,
+                        isFloatChecked
+                    );
                 });
             }
         });
@@ -211,19 +218,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     function cancelJob(rowData) {
-        const modelType = rowData.type;
-        const date = rowData.date;
-        const job_id = rowData.job_id;
 
-        fetch("/cancel_sbatch_job", {
+        fetch("/send_job", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({
-                jobId: job_id,
-                modelType: modelType,
-                date: date
+                ...rowData,
+                job_type: "cancel"
             })
         })
+    
             .then(response => response.json())
             .then(data => {
                 if (data.status === "success") {
@@ -242,8 +248,6 @@ document.addEventListener('DOMContentLoaded', function () {
         loading.style.display = 'block';
         errorDiv.style.display = 'none';
         table.style.display = 'none';
-
-        console.log("DASHBOARD_CONFIG =", DASHBOARD_CONFIG);
 
         const jsonFile = DASHBOARD_CONFIG.data.index_file;
 
@@ -455,125 +459,109 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Render table with data
     function renderTable(data) {
-        tableBody.innerHTML = '';
+        tableBody.innerHTML = "";
+
+        const columns = DASHBOARD_CONFIG.columns;
 
         data.forEach(row => {
-            const tr = document.createElement('tr');
+            const tr = document.createElement("tr");
 
             // Store the link as a data attribute
             if (row.link) {
-                tr.setAttribute('data-link', row.link);
+                tr.setAttribute("data-link", row.link);
             }
 
-            // Date column
-            const dateTd = document.createElement('td');
-            dateTd.textContent = row.date;
-            tr.appendChild(dateTd);
+            // Render configured columns
+            columns.forEach(column => {
 
-            // Type column
-            const typeTd = document.createElement('td');
-            typeTd.textContent = row.type;
-            tr.appendChild(typeTd);
+                const td = document.createElement("td");
 
-            // Type column
-            const jobIdTd = document.createElement('td');
-            jobIdTd.textContent = row.job_id;
-            tr.appendChild(jobIdTd);
+                switch (column.type) {
 
-            // Run Time column
-            const runTimeTd = document.createElement('td');
-            runTimeTd.textContent = row.run_time;
-            tr.appendChild(runTimeTd);
+                    case "status": {
 
-            // Status column
-            const statusTd = document.createElement('td');
-            statusTd.textContent = row.Status;
-            tr.appendChild(statusTd);
+                        const status = (row[column.key] || "").toString().trim();
+                        td.textContent = status;
 
-            // Score columns
-            const noBkgTd = document.createElement('td');
-            noBkgTd.textContent = row.No_bkg;
-            tr.appendChild(noBkgTd);
+                        if (status === "Completed") {
+                            td.classList.add("status-completed");
+                        } else if (status === "Launched") {
+                            td.classList.add("status-launched");
+                        } else if (status === "Cancelled") {
+                            td.classList.add("status-skipped");
+                        } else if (status.startsWith("Failed")) {
+                            td.classList.add("status-failed");
+                        } else if (status.startsWith("Success")) {
+                            td.classList.add("status-success");
+                        } else if (status.startsWith("Skipped")) {
+                            td.classList.add("status-skipped");
+                        }
 
-            const allBkgTd = document.createElement('td');
-            allBkgTd.textContent = row.All_bkg;
-            tr.appendChild(allBkgTd);
+                        break;
+                    }
 
-            const singleHTd = document.createElement('td');
-            singleHTd.textContent = row.singleH;
-            tr.appendChild(singleHTd);
+                    case "action": {
 
-            const runSettingTd = document.createElement('td');
-            runSettingTd.textContent = row.run_setting;
-            tr.appendChild(runSettingTd);
+                        const button = document.createElement("button");
+                        const status = (row.Status || "").toString().trim();
 
-            // Action button column
-            const actionTd = document.createElement('td');
-            const actionButton = document.createElement('button');
+                        if (
+                            status &&
+                            !["Completed", "Cancelled"].includes(status) &&
+                            !status.startsWith("Failed")
+                        ) {
+                            button.textContent = "Cancel\nJob";
+                            button.classList.add("action-button-red");
 
-            const status = (row.Status || '').toString().trim();
+                            button.onclick = (e) => {
+                                e.stopPropagation();
+                                cancelJob(row, button);
+                            };
 
-            if (status && !['Completed', 'Cancelled'].includes(status) && !status.startsWith('Failed')) {
-                // Job is running/pending - Show Cancel button
-                actionButton.textContent = 'Cancel\nJob';
-                actionButton.classList.add('action-button-red');
+                        } else {
 
-                actionButton.onclick = (e) => {
-                    e.stopPropagation();
-                    cancelJob(row, actionButton);
-                };
-            } else {
-                // Job is completed/failed/no status - Show Run/Rerun button
-                actionButton.textContent = 'Run\nScript';
-                actionButton.classList.add('action-button-green');
-                actionButton.onclick = (e) => {
-                    e.stopPropagation();
-                    executeScript(row, actionButton);
-                };
-            }
+                            button.textContent = "Run\nScript";
+                            button.classList.add("action-button-green");
 
-            // Clear any existing status classes
-            statusTd.classList.remove('status-completed', 'status-failed', 'status-cancelled', 'status-success', 'status-launched', 'status-skipped');
+                            button.onclick = (e) => {
+                                e.stopPropagation();
+                                executeScript(row, button);
+                            };
+                        }
 
-            // Apply color based on status
-            if (status === 'Completed') {
-                statusTd.classList.add('status-completed'); // BLUE
-            } else if (status === 'Launched') {
-                statusTd.classList.add('status-launched'); // ORANGE
-            } else if (status === 'Cancelled') {
-                statusTd.classList.add('status-skipped'); // GRAY
-            } else if (status.startsWith('Failed')) {
-                statusTd.classList.add('status-failed'); // RED
-            } else if (status.startsWith('Success')) {
-                statusTd.classList.add('status-success'); // GREEN
-            } else if (status.startsWith('Skipped')) {
-                statusTd.classList.add('status-skipped'); // GRAY
-            }
-            // Note: Running/Pending statuses won't get colored
+                        td.appendChild(button);
+                        break;
+                    }
 
-            actionTd.appendChild(actionButton);
-            tr.appendChild(actionTd);
+                    case "normal":
+                    default:
 
+                        td.textContent = row[column.key] ?? "";
+                        break;
+                }
+
+                tr.appendChild(td);
+            });
 
             // Make row clickable if link is provided
             if (row.link) {
-                tr.style.cursor = 'pointer';
-                tr.addEventListener('click', () => {
-                    // Navigate to page.
+
+                tr.style.cursor = "pointer";
+
+                tr.addEventListener("click", () => {
                     window.location.href = row.link;
                 });
 
-                // Add hover effect
-                tr.addEventListener('mouseenter', () => {
-                    tr.style.backgroundColor = '#e3f2fd';
+                tr.addEventListener("mouseenter", () => {
+                    tr.style.backgroundColor = "#e3f2fd";
                 });
 
-                tr.addEventListener('mouseleave', () => {
-                    // Reset to original background color
+                tr.addEventListener("mouseleave", () => {
+
                     if (Array.from(tableBody.children).indexOf(tr) % 2 === 0) {
-                        tr.style.backgroundColor = '';
+                        tr.style.backgroundColor = "";
                     } else {
-                        tr.style.backgroundColor = '#f8f9fa';
+                        tr.style.backgroundColor = "#f8f9fa";
                     }
                 });
             }
@@ -584,63 +572,76 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Sort table data
     function sortTable(column, direction) {
-        // Get current data from table
+
         const data = [];
-        const rows = tableBody.querySelectorAll('tr');
+        const rows = tableBody.querySelectorAll("tr");
+        const columns = DASHBOARD_CONFIG.columns;
 
         rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            data.push({
-                date: cells[0].textContent,
-                type: cells[1].textContent,
-                job_id: cells[2].textContent,
-                run_time: cells[3].textContent,
-                Status: cells[4].textContent,
-                No_bkg: cells[5].textContent,
-                All_bkg: cells[6].textContent,
-                singleH: cells[7].textContent,
-                run_setting: cells[8].textContent,
-                link: row.getAttribute('data-link') || ''
+
+            const cells = row.querySelectorAll("td");
+            const rowData = {};
+
+            columns.forEach((col, index) => {
+
+                // Skip action columns since they don't contain data
+                if (col.type === "action") {
+                    return;
+                }
+
+                rowData[col.key] = cells[index].textContent;
             });
+
+            rowData.link = row.getAttribute("data-link") || "";
+
+            data.push(rowData);
         });
 
         data.sort((a, b) => {
+
             let valueA = a[column];
             let valueB = b[column];
 
-            if (['No_bkg', 'All_bkg', 'singleH'].includes(column)) {
+            const columnConfig = columns.find(c => c.key === column);
+
+            // Numeric columns
+            if (columnConfig?.dataType === "number") {
                 valueA = Number(valueA);
                 valueB = Number(valueB);
             }
 
-            // Handle date sorting
-            if (column === 'date') {
+            // Date columns
+            if (columnConfig?.dataType === "date") {
                 valueA = new Date(valueA);
                 valueB = new Date(valueB);
             }
 
             if (valueA < valueB) {
-                return direction === 'asc' ? -1 : 1;
+                return direction === "asc" ? -1 : 1;
             }
+
             if (valueA > valueB) {
-                return direction === 'asc' ? 1 : -1;
+                return direction === "asc" ? 1 : -1;
             }
+
             return 0;
         });
 
         renderTable(data);
 
         // Update sort indicators
-        document.querySelectorAll('th').forEach(header => {
-            const icon = header.querySelector('.sort-icon');
+        document.querySelectorAll("th").forEach(header => {
+
+            const icon = header.querySelector(".sort-icon");
+            if (!icon) return;
+
             if (header.dataset.sort === column) {
-                icon.textContent = direction === 'asc' ? '↑' : '↓';
+                icon.textContent = direction === "asc" ? "↑" : "↓";
             } else {
-                icon.textContent = '↕';
+                icon.textContent = "↕";
             }
         });
     }
-
     // Set up sorting
     document.querySelectorAll('th').forEach(header => {
         let sortDirection = 'asc';

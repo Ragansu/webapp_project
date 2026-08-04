@@ -1,0 +1,39 @@
+<div class="action-modal-content">
+    <h3>Select Action for <span id="modal-model-type"></span></h3>
+
+    <p>Choose what you want to do with this model:</p>
+
+    <div class="checkbox-container" style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="syst-checkbox">
+                Run with systematics
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="float-checkbox">
+                Run with Bkg Floating
+            </label>
+
+        </div>
+    </div>
+
+    <div class="action-button-container">
+        <button class="action-btn action-btn-rerun" data-action="re-run">
+            Re-run
+        </button>
+
+        <button class="action-btn action-btn-retrain" data-action="re-train">
+            Re-train
+        </button>
+
+        <button class="action-btn action-btn-retest" data-action="re-test">
+            Re-test
+        </button>
+    </div>
+
+    <button class="action-btn action-btn-cancel">
+        Cancel
+    </button>
+</div>

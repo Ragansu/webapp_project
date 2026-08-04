@@ -1,11 +1,17 @@
 from pathlib import Path
+import subprocess
 
 from flask import (
     current_app,
     abort,
     render_template,
     send_from_directory,
+    request,
+    jsonify,
 )
+
+from .plugin_loader import load_job_plugin
+
 
 
 def safe_send(directory: Path, filename: str):
@@ -36,6 +42,9 @@ def register_routes(app):
             config=current_app.config["DASHBOARD_CONFIG"],
         )
 
+    @app.route("/action-modal")
+    def action_modal():
+        return render_template("action_modal.html")
 
     @app.route("/json/<path:filename>")
     def json_files(filename):
@@ -80,3 +89,33 @@ def register_routes(app):
             filename,
     )
     
+
+
+    @app.route("/send_sbatch_job", methods=["POST"])
+    def send_sbatch_job():
+        data = request.get_json()
+
+        try:
+            result = current_app.job_backend.submit_job(data)
+
+            return jsonify({"status": "success", "output": result})
+        except subprocess.CalledProcessError as e:
+            return jsonify({"status": "error", "output": e.stderr}), 500
+
+
+    @app.route("/cancel_sbatch_job", methods=["POST"])
+    def cancel_sbatch_job():
+        data = request.get_json()
+
+        try:
+            result = current_app.job_backend.cancel_job(data)
+
+            return jsonify(
+                {
+                    "status": "success",
+                    "output": result,
+                }
+            )
+
+        except subprocess.CalledProcessError as e:
+            return jsonify({"status": "error", "output": e.stderr.strip()}), 500

@@ -4,6 +4,7 @@ from flask import Flask
 import yaml
 
 from .routes import register_routes
+from .plugin_loader import load_job_plugin
 
 
 PACKAGE_DIR = Path(__file__).parent
@@ -43,6 +44,15 @@ def create_app(
         )
     else:
         app.config["DASHBOARD_CONFIG"] = {}
+
+
+    backend_path = (
+        app.config["DASHBOARD_CONFIG"]
+        ["jobs"]
+        ["backend"]
+    )
+
+    app.job_backend = load_job_plugin(backend_path)
 
     register_routes(app)
 
