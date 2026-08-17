@@ -384,15 +384,15 @@ DEFAULT_ENTRY = {
 class Sequencer:
     def __init__(
         self,
+        json_dir,
         plots_dir=None,
         initial_entry=DEFAULT_ENTRY
     ):
 
-        self.json_dir = os.path.join(repo_dir, "json_file")
-        os.makedirs(self.json_dir, exist_ok=True)
+        os.makedirs(json_dir, exist_ok=True)
 
-        self.entry_file = os.path.join(self.json_dir, f"{initial_entry['date']}.json")
-        self.index_file = os.path.join(repo_dir, "static/index.json")
+        self.entry_file = os.path.join(json_dir, f"{initial_entry['date']}.json")
+        self.index_file = os.path.join(json_dir, "index.json")
 
         self.__entry_dict__ = initial_entry
 
@@ -403,11 +403,7 @@ class Sequencer:
 
         # Load existing entry if it exists
         if os.path.exists(self.entry_file):
-            try:
-                with open(self.entry_file, "r", encoding="utf-8") as f:
-                    self.__entry_dict__.update(json.load(f))
-            except Exception as e:
-                logger.warning(f"Failed to read existing entry JSON: {e}")
+            self._read_entry()
 
         # Plot handling (unchanged)
         if plots_dir is not None:
@@ -429,6 +425,13 @@ class Sequencer:
     # ------------------------
     # Internal helpers
     # ------------------------
+
+    def _read_entry(self):
+        try:
+            with open(self.entry_file, "r", encoding="utf-8") as f:
+                self.__entry_dict__ = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read entry JSON: {e}")
 
     def _write_entry(self):
         try:

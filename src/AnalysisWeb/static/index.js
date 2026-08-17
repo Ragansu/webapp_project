@@ -231,15 +231,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function cancelJob(rowData) {
 
-        fetch("/send_job", {
+        fetch("/cancel_sbatch_job", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                ...rowData,
-                job_type: "cancel"
-            })
+            body: JSON.stringify(rowData)
         })
 
             .then(response => response.json())

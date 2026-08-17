@@ -43,8 +43,6 @@ sequencer.add_algorithm(
     plot_label=f"holdout_{args.model_type}",
 )
 
-score = model.scoring()
-sequencer.add_score("score", score)
 
 sequencer.end()
 ```

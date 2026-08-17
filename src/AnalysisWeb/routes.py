@@ -10,6 +10,8 @@ from flask import (
     jsonify,
 )
 
+from datetime import datetime
+
 from .plugin_loader import load_job_plugin
 
 
@@ -94,9 +96,11 @@ def register_routes(app):
     @app.route("/send_sbatch_job", methods=["POST"])
     def send_sbatch_job():
         data = request.get_json()
+        now = datetime.now()
+        date_str = now.strftime("%Y%m%d_%H_%M_%S")
 
         try:
-            result = current_app.job_backend.submit_job(data)
+            result = current_app.job_backend.submit_job(data, date_str)
 
             return jsonify({"status": "success", "output": result})
         except subprocess.CalledProcessError as e:
