@@ -391,7 +391,7 @@ class Sequencer:
         self.json_dir = os.path.join(repo_dir, "json_file")
         os.makedirs(self.json_dir, exist_ok=True)
 
-        self.entry_file = os.path.join(self.json_dir, f"{initial_entry["date"]}.json")
+        self.entry_file = os.path.join(self.json_dir, f"{initial_entry['date']}.json")
         self.index_file = os.path.join(repo_dir, "static/index.json")
 
         self.__entry_dict__ = initial_entry
@@ -535,7 +535,6 @@ class Sequencer:
         kwargs = step["kwargs"]
         name = step["name"]
 
-        get_memory_usage(stage=f"Before {name}")
 
         try:
             status = func(*args, **kwargs).value  # Assuming func returns a Status enum
@@ -548,7 +547,6 @@ class Sequencer:
 
             raise e
         finally:
-            get_memory_usage(stage=f"After  {name}")
             self.update(status=status)
 
     def add_subsequence(self, func, *args, **kwargs):
@@ -590,9 +588,6 @@ class Sequencer:
         for step in self.steps:
             self.run_step(step)
 
-    def add_score(self, tag, score):
-        self.__entry_dict__[tag] = np.round(score, 3)
-        self.update(status=f"Added Score for {tag}")
 
     def start(self):
         self.update(status="Setting Up")

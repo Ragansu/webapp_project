@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
     async function executeScript(rowData) {
 
         // Find the action configuration
-        const actionConfig = config.action?.find(
+        const actionConfig = DASHBOARD_CONFIG.action?.find(
             action => action.key === "run_script"
         );
 
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Configure the run button from the config
-        const runButton = modal.querySelector(".action-btn-run");
+        const runButton = modal.querySelector(".action-btn-green");
 
         if (runButton) {
 
@@ -368,7 +368,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updatePaginationButtons() {
         prevBtn.disabled = currentPage === 0;
-        // Use filteredIndex.length here so pagination works with the filters
         nextBtn.disabled = (currentPage + 1) * PAGE_SIZE >= filteredIndex.length;
     }
 
@@ -406,60 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    let filteredIndex = []; // This will hold the filenames that pass the test
 
-    function applyFilters() {
-        const statusValue = document.getElementById('statusFilter').value;
-        const modelValue = document.getElementById('modelFilter').value;
-
-        // Filter the fileIndex (the list of filenames)
-        filteredIndex = fileIndex.filter(fileName => {
-            const cachedData = dataCache.get(fileName);
-
-            // If "All" is selected, we let it through
-            // If a specific filter is set, we check the cache
-            if (statusValue === 'all' && modelValue === 'all') return true;
-
-            // CRITICAL: If the file isn't in cache yet, we can't "see" its status
-            // So we exclude it from the filtered view to prevent errors
-            if (!cachedData) return false;
-
-            const matchesStatus = statusValue === 'all' || cachedData.status === statusValue;
-            const matchesModel = modelValue === 'all' || cachedData.model_type === modelValue;
-
-            return matchesStatus && matchesModel;
-        });
-
-        currentPage = 0;
-        renderFilteredPage();
-    }
-
-    function renderFilteredPage() {
-        const start = currentPage * PAGE_SIZE;
-        const end = Math.min(start + PAGE_SIZE, filteredIndex.length);
-        const filesToRender = filteredIndex.slice(start, end);
-
-        // Map filenames to their cached JSON objects
-        const pageData = filesToRender.map(file => dataCache.get(file));
-
-        // Send to your existing table renderer
-        renderTable(pageData);
-
-        // Update the UI text
-        const totalCount = filteredIndex.length;
-        pageInfo.textContent = `Showing ${totalCount > 0 ? start + 1 : 0}–${end} of ${totalCount} filtered results`;
-
-        updatePaginationButtons();
-    }
-    // Link the HTML to the logic
-    document.getElementById('statusFilter').addEventListener('change', applyFilters);
-    document.getElementById('modelFilter').addEventListener('change', applyFilters);
-
-    document.getElementById('resetFilters').onclick = () => {
-        document.getElementById('statusFilter').value = 'all';
-        document.getElementById('modelFilter').value = 'all';
-        applyFilters();
-    };
 
     // Show error message
     function showError(message) {
