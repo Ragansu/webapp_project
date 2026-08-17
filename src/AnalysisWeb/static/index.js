@@ -57,12 +57,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to execute shell script with option selection
     async function executeScript(rowData) {
 
-        // Extract the model type from the row data
-        const modelType = rowData.type;
+        // Find the action configuration
+        const actionConfig = config.action?.find(
+            action => action.key === "run_script"
+        );
 
-        // If model type is "comparison", directly send comparison_job request
-        if (modelType === "comparison") {
-            sendComparisonJobRequest(rowData);
+        if (!actionConfig) {
+            console.error("run_script action not found in config");
             return;
         }
 
@@ -84,10 +85,50 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Insert dynamic model type
-        const modelTitle = modal.querySelector("#modal-model-type");
-        if (modelTitle) {
-            modelTitle.textContent = modelType;
+        const flagsContainer = modal.querySelector("#job-flags-container");
+
+        if (flagsContainer) {
+
+            flagsContainer.innerHTML = "";
+
+            (actionConfig.job_flags || []).forEach((flag, index) => {
+
+                const label = document.createElement("label");
+
+                label.style.display = "flex";
+                label.style.alignItems = "center";
+                label.style.gap = "8px";
+                label.style.cursor = "pointer";
+
+                const checkbox = document.createElement("input");
+
+                checkbox.type = "checkbox";
+                checkbox.id = `job-flag-${index}`;
+
+                // Store the config information on the checkbox
+                checkbox.dataset.flag = flag.key;
+                checkbox.dataset.value = flag.value;
+
+                label.appendChild(checkbox);
+
+                label.appendChild(
+                    document.createTextNode(flag.label || flag.key)
+                );
+
+                flagsContainer.appendChild(label);
+            });
+        }
+
+        // Configure the run button from the config
+        const runButton = modal.querySelector(".action-btn-run");
+
+        if (runButton) {
+
+            runButton.textContent = actionConfig.title;
+
+            runButton.dataset.actionKey = actionConfig.key;
+            runButton.dataset.actionType = actionConfig.action_type;
+            runButton.dataset.jobPlugin = actionConfig.job_plugin;
         }
 
         // Add event listeners to buttons
@@ -101,71 +142,69 @@ document.addEventListener('DOMContentLoaded', function () {
 
             } else {
 
-                const action = button.getAttribute("data-action");
-
                 button.addEventListener("click", () => {
 
-                    const isSystChecked =
-                        modal.querySelector("#syst-checkbox").checked;
+                    // Collect selected flags
+                    const selectedFlags = [];
 
-                    const isFloatChecked =
-                        modal.querySelector("#float-checkbox").checked;
+                    modal
+                        .querySelectorAll(
+                            "#job-flags-container input[type='checkbox']:checked"
+                        )
+                        .forEach(checkbox => {
+
+                            selectedFlags.push({
+                                key: checkbox.dataset.flag,
+                                value: checkbox.dataset.value
+                            });
+                        });
 
                     handleOption(
-                        action,
-                        modelType,
-                        isSystChecked,
-                        isFloatChecked
+                        button.dataset.action || "re-run",
+                        rowData,
+                        selectedFlags
                     );
                 });
             }
         });
 
+        // Add modal to page
         document.body.appendChild(modal);
 
-        // Store the modal reference for cleanup
+        // Store modal reference for cleanup
         window.currentModal = modal;
     }
-
     // Handle the selected option
-    function handleOption(action, modelType, isSystChecked, isFloatChecked) {
+    function handleOption(action, rowData, selectedFlags) {
         closeModal();
 
-        let notificationMessage = '';
-
-        switch (action) {
-            case 're-run':
-                notificationMessage = `Re-running model: ${modelType}`;
-                break;
-            case 're-train':
-                notificationMessage = `Re-training model: ${modelType}`;
-                break;
-            case 're-test':
-                notificationMessage = `Re-validating model: ${modelType}`;
-                break;
-            default:
-                notificationMessage = `Executing ${action} for model: ${modelType}`;
-        }
+        const notificationMessage =
+            `Executing ${action}`;
 
         // Show notification
         if (typeof showNotification === 'function') {
             showNotification(notificationMessage, true);
         }
 
-
-
-        // Send the request with both modelType and action
+        // Send the request
         fetch("/send_sbatch_job", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({
-                modelType: modelType,
+                ...rowData,
                 action: action,
-                syst: isSystChecked,
-                floating: isFloatChecked
+                job_flags: selectedFlags
             })
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                return response.json();
+            })
             .then(data => {
                 alert(`${action} ${data.status}:\n${data.output}`);
             })
@@ -190,33 +229,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Function to send comparison_job request
-    function sendComparisonJobRequest(rowData) {
-        const date = rowData.date;
-        const job_id = rowData.job_id;
-
-        fetch('/send_comparison_job', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                jobId: job_id,
-                date: date
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    showNotification("Comparison Job sent successfully", true);
-                } else {
-                    alert("Failed to send job: " + data.output);
-                }
-            })
-            .catch(error => {
-                console.error("Error sendding job:", error);
-            });
-    }
-
-
     function cancelJob(rowData) {
 
         fetch("/send_job", {
@@ -229,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 job_type: "cancel"
             })
         })
-    
+
             .then(response => response.json())
             .then(data => {
                 if (data.status === "success") {

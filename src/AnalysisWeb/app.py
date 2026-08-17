@@ -48,8 +48,7 @@ def create_app(
 
     backend_path = (
         app.config["DASHBOARD_CONFIG"]
-        ["jobs"]
-        ["backend"]
+        ["action"][0]["job_plugin"]
     )
 
     app.job_backend = load_job_plugin(backend_path)

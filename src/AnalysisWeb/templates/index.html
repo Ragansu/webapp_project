@@ -43,21 +43,7 @@
     </div>
     {% endif %}
 
-    {% if config.filters %}
-    <div class="filter-container">
-        {% for filter in config.filters %}
-        <div class="filter-group">
-            <label for="{{ filter.id }}">{{ filter.label }}:</label>
-            <select id="{{ filter.id }}">
-                {% for option in filter.options %}
-                <option value="{{ option.value }}">{{ option.label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endfor %}
-        <button id="resetFilters" class="btn-secondary">Reset</button>
-    </div>
-    {% endif %}
+
 
     {% if config.pagination %}
     <div class="pagination">
