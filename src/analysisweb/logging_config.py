@@ -5,16 +5,6 @@ import logging
 VERBOSE_LEVEL_NUM = 15
 logging.addLevelName(VERBOSE_LEVEL_NUM, "VERBOSE")
 
-
-def get_keras_verbose(log_level):
-    if log_level == logging.INFO:
-        return 0
-    elif log_level == logging.DEBUG:
-        return 2
-    else:
-        return 1
-
-
 def verbose(self, message, *args, **kwargs):
     if self.isEnabledFor(VERBOSE_LEVEL_NUM):
         self._log(VERBOSE_LEVEL_NUM, message, args, **kwargs)
@@ -22,10 +12,9 @@ def verbose(self, message, *args, **kwargs):
 
 logging.Logger.verbose = verbose
 
-
-def setup_logging():
+DEFAULT_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+def setup_logging(log_level_str=DEFAULT_LOG_LEVEL):
     """Set up logging with custom VERBOSE level."""
-    log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 
     # Handle custom level explicitly
     if log_level_str == "VERBOSE":

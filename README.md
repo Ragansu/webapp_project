@@ -51,5 +51,5 @@ sequencer.end()
 you can launch the webapp with 
 
 ```bash
-python -m AnalysisWeb.app --results-dir --csv-dir
+analysisweb --results-dir ./results/ --json-dir json_file/ --config ./static/dashboard.yaml
 ```

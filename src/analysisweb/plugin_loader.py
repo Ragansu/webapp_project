@@ -11,8 +11,6 @@ def load_job_plugin(path):
 
     sys.path.insert(0, str(path.parent))
 
-    print(f"sys.path: {sys.path}")
-
     spec = importlib.util.spec_from_file_location(
         "job_plugin",
         path
