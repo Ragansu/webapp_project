@@ -1,17 +1,17 @@
+"""Module for generating HTML reports and managing analysis sequences."""
+
 import os
 import glob
 from pathlib import Path
 from datetime import datetime
 
 import json
-from jinja2 import Environment, FileSystemLoader
-import csv
 import warnings
-from enum import Enum
-
 import logging
+from jinja2 import Environment, FileSystemLoader
 
 from .logging_config import setup_logging
+from . import Status
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -28,17 +28,11 @@ _DEFAULT_SAVE_DIR = os.path.join(current_dir, formatted_time)
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-class Status(Enum):
-    FAILED = "Failed"
-    SUCCESS = "Success"
-    SKIPPED = "Skipped"
-
-
 def create_results_index(
     directory=_DEFAULT_SAVE_DIR,
     output_file="index.html",
     title="ML Analysis Results Index",
-):
+):  # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     """Creates an HTML index page linking to all result files using Jinja2 template."""
 
     # Setup Jinja2 environment
@@ -56,7 +50,7 @@ def create_results_index(
     for folder in folders:
         index_path = os.path.join(folder, "index.html")
 
-        if os.path.exists(index_path) and not (index_path == output_file):
+        if os.path.exists(index_path) and (index_path != output_file):
             if index_path not in processed_files:
                 html_files.add(index_path)
                 processed_files.add(index_path)
@@ -79,8 +73,8 @@ def create_results_index(
     for file_path in html_files:
         file_name = os.path.basename(file_path)
         relative_path = os.path.relpath(file_path, root_dir)
-        logger.debug(f"Relative Path : {relative_path}")
-        logger.debug(f"Root Path : {root_dir}")
+        logger.debug("Relative Path : %s", relative_path)
+        logger.debug("Root Path : %s", root_dir)
         if "NLLs_" in file_name:
             # Extract the base name (without test/holdout and extension)
             base_name = (
@@ -99,18 +93,18 @@ def create_results_index(
                 nll_groups[base_name]["test"] = relative_path
 
         elif file_name.endswith("_density_ratios.html"):
-            logger.debug(f"File Name : {file_name}")
+            logger.debug("File Name : %s", file_name)
             density_ratios[file_name] = relative_path
 
         elif file_name.endswith("index.html"):
             parent_folder = os.path.basename(os.path.dirname(relative_path))
             base_name = file_name.replace("index.html", parent_folder)
-            logger.debug(f"Base Name : {base_name}")
+            logger.debug("Base Name : %s", base_name)
             index_files[base_name] = relative_path
         else:
 
             base_name = file_name.replace("_", " ").replace(".html", "")
-            logger.debug(f"Base Name : {base_name}")
+            logger.debug("Base Name : %s", base_name)
             misc_files[base_name] = relative_path
 
     # Prepare data for template
@@ -131,15 +125,15 @@ def create_results_index(
     html_content = template.render(**template_data)
 
     # Write to file
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    logger.info(f"Index created: {output_file}")
-    logger.info(f"Total files indexed: {len(html_files)}")
-    logger.info(f"NLL groups: {len(nll_groups)}")
-    logger.info(f"Density ratio files: {len(density_ratios)}")
-    logger.info(f"Index files: {len(index_files)}")
-    logger.info(f"Miscellaneous files: {len(misc_files)}")
+    logger.info("Index created: %s", output_file)
+    logger.info("Total files indexed: %s", len(html_files))
+    logger.info("NLL groups: %s", len(nll_groups))
+    logger.info("Density ratio files: %s", len(density_ratios))
+    logger.info("Index files: %s", len(index_files))
+    logger.info("Miscellaneous files: %s", len(misc_files))
 
     return Status.SUCCESS
 
@@ -188,7 +182,7 @@ def config_to_html(config, filename="config_report.html"):
     )
 
     # Save to file
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return Status.SUCCESS
@@ -217,7 +211,7 @@ def text_report_to_html(text, title="Report", filename="text_report.html"):
     html_content = template.render(**template_data)
 
     # Write to file
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return filename
@@ -257,7 +251,7 @@ def image_report_to_html(
     html_content = template.render(**template_data)
 
     # Write to file
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return filename
@@ -287,7 +281,7 @@ def save_table_html(df, title, filename):
     if os.path.exists(filename) and os.path.exists(data_file):
         try:
             # Load existing sections
-            with open(data_file, "r") as f:
+            with open(data_file, "r", encoding="utf-8") as f:
                 sections = json.load(f)
 
             # Check if section with same title already exists
@@ -310,7 +304,7 @@ def save_table_html(df, title, filename):
         sections = [new_section]
 
     # Save sections to data file
-    with open(data_file, "w") as f:
+    with open(data_file, "w", encoding="utf-8") as f:
         json.dump(sections, f, indent=2)
 
     # Render template with all sections
@@ -323,7 +317,7 @@ def save_table_html(df, title, filename):
     html_content = template.render(**template_data)
 
     # Write HTML file
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return filename
@@ -334,9 +328,9 @@ def image_gallery_to_html(
     titles=None,
     output_file="image_gallery.html",
     file_title="Image Gallery",
-    dictionary_data={},
+    dictionary_data=None,
     index_dir="index.html",
-):
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
     Create an HTML page with multiple base64 images in a gallery layout using Jinja2.
 
@@ -363,239 +357,18 @@ def image_gallery_to_html(
         "file_title": file_title,
         "images": images,
         "generation_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "dictionary_data": dictionary_data,
         "index_dir": index_dir,
     }
+
+    if dictionary_data:
+        template_data["dictionary_data"] = dictionary_data
 
     # Load and render template
     template = env.get_template("image_gallery_template.html")
     html_content = template.render(**template_data)
 
     # Write to file
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return output_file
-
-
-DEFAULT_ENTRY = {
-    "date": formatted_time,
-    "run_time": 0,
-    "Status": "Launched",
-    "link": "/",
-}
-
-
-class Sequencer:
-    def __init__(self, json_dir, plots_dir=None, initial_entry=DEFAULT_ENTRY):
-
-        os.makedirs(json_dir, exist_ok=True)
-
-        self.entry_file = os.path.join(json_dir, f"{initial_entry['date']}.json")
-        self.index_file = os.path.join(json_dir, "index.json")
-
-        self.__entry_dict__ = initial_entry
-
-        self.steps = []
-
-        self.start_time = 0
-        self.last_time_stamp = datetime.now()
-
-        # Load existing entry if it exists
-        if os.path.exists(self.entry_file):
-            self._read_entry()
-
-        # Plot handling (unchanged)
-        if plots_dir is not None:
-            self.__entry_dict__["link"] = os.path.basename(plots_dir) + "/index.html"
-            self.plots_dir = plots_dir
-            self.output_html = os.path.join(plots_dir, "index.html")
-            create_results_index(
-                self.plots_dir,
-                self.output_html,
-                title=os.path.basename(self.plots_dir),
-            )
-            self.timerecord = os.path.join(plots_dir, "time_record.csv")
-            self.fieldnames = ["status", "time", "duration"]
-
-        # Initial write
-        self._write_entry()
-        self._update_index()
-
-    # ------------------------
-    # Internal helpers
-    # ------------------------
-
-    def _read_entry(self):
-        try:
-            with open(self.entry_file, "r", encoding="utf-8") as f:
-                self.__entry_dict__ = json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to read entry JSON: {e}")
-
-    def _write_entry(self):
-        try:
-            with open(self.entry_file, "w", encoding="utf-8") as f:
-                json.dump(self.__entry_dict__, f, indent=2)
-        except Exception as e:
-            logger.error(f"Failed to write entry JSON: {e}")
-
-    def _update_index(self):
-        try:
-            if os.path.exists(self.index_file):
-                with open(self.index_file, "r", encoding="utf-8") as f:
-                    index = json.load(f)
-            else:
-                index = []
-
-            filename = os.path.basename(self.entry_file)
-            if filename not in index:
-                index.append(filename)
-
-            # newest first (by filename / date)
-            index = sorted(index, reverse=True)
-
-            with open(self.index_file, "w", encoding="utf-8") as f:
-                json.dump(index, f, indent=2)
-
-        except Exception as e:
-            logger.error(f"Failed to update index.json: {e}")
-
-    # ------------------------
-    # Public update hook
-    # ------------------------
-
-    def update(self, status=""):
-        if self.start_time:
-            self.__entry_dict__["run_time"] = (
-                datetime.now() - self.start_time
-            ).total_seconds()
-
-        self.__entry_dict__["Status"] = status
-        self._write_entry()
-
-        # Regenerate HTML if needed
-        try:
-            create_results_index(
-                self.plots_dir,
-                self.output_html,
-                title=os.path.basename(self.plots_dir),
-            )
-        except Exception as e:
-            logger.error(f"Failed to regenerate HTML: {e}")
-
-        # Append time record (unchanged CSV logging)
-        try:
-            now = datetime.now()
-            duration = now - self.last_time_stamp
-
-            # Convert timedelta to HH:MM:SS
-            total_seconds = int(duration.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-
-            record = {
-                "status": self.__entry_dict__["Status"],
-                "time": now.strftime("%H:%M:%S"),
-                "duration": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
-            }
-
-            self.last_time_stamp = now
-
-            file_exists = os.path.exists(self.timerecord)
-            with open(self.timerecord, "a", newline="", encoding="utf-8") as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
-                if not file_exists:
-                    writer.writeheader()
-                writer.writerow(record)
-
-        except Exception as e:
-            logger.error(f"Failed to log time record: {e}")
-
-    @staticmethod
-    def create_substep(func, *args, name=None, aux=False, **kwargs):
-
-        if "data_label" in kwargs:
-            data_label = f"({kwargs['data_label']})"
-
-        else:
-            data_label = ""
-
-        substep = {
-            "name": name or func.__qualname__ + data_label,
-            "aux": aux,
-            "func": func,
-            "args": args,
-            "kwargs": kwargs,
-        }
-        return substep
-
-    def run_step(self, step):
-
-        func = step["func"]
-        args = step["args"]
-        kwargs = step["kwargs"]
-        name = step["name"]
-
-        try:
-            status = func(*args, **kwargs).value  # Assuming func returns a Status enum
-
-            status = status + " | " + name
-
-        except Exception as e:
-            logger.error(f"Error during {name}: {e}")
-            status = Status.FAILED.value + " | " + name
-
-            raise e
-        finally:
-            self.update(status=status)
-
-    def add_subsequence(self, func, *args, **kwargs):
-        subsequence = func(*args, **kwargs)
-        self.steps.extend(subsequence)
-
-    def add_algorithm(self, func, *args, name=None, aux=False, **kwargs):
-        self.steps.append(
-            self.create_substep(func, *args, name=name, aux=aux, **kwargs)
-        )
-
-    def print_sequence(self):
-        """Return a formatted string of the sequence to be executed."""
-        width = 85
-        title = "Sequence to be executed"
-        header = [
-            "┌" + "─" * (width) + "┐",
-            f"│{title.center(width)}│",
-            "│" + "─" * width + "│",
-        ]
-
-        main_steps = [step for i, step in enumerate(self.steps) if not step["aux"]]
-
-        steps = [
-            f"│ Step - {i:3} {step['name']}".ljust(width) + " │"
-            for i, step in enumerate(main_steps)
-        ]
-
-        footer = ["└" + "─" * width + "┘\n"]
-
-        sequence_str = "\n".join(header + steps + footer)
-
-        print(sequence_str)
-
-        return sequence_str
-
-    def run(self):
-        self.update(status="Running")
-        for step in self.steps:
-            self.run_step(step)
-
-    def start(self):
-        self.update(status="Setting Up")
-        self.start_time = datetime.now()
-
-    def end(self):
-        self.update("Completed")
-
-    def cancel(self):
-        self.update("Cancelled")

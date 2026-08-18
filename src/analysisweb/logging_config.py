@@ -1,3 +1,5 @@
+"""Logging configuration for the web application."""
+
 import os
 import logging
 
@@ -7,8 +9,9 @@ logging.addLevelName(VERBOSE_LEVEL_NUM, "VERBOSE")
 
 
 def verbose(self, message, *args, **kwargs):
+    """Log a message with the custom VERBOSE level."""
     if self.isEnabledFor(VERBOSE_LEVEL_NUM):
-        self._log(VERBOSE_LEVEL_NUM, message, args, **kwargs)
+        self.log(VERBOSE_LEVEL_NUM, message, *args, **kwargs)
 
 
 logging.Logger.verbose = verbose
