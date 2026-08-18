@@ -1,6 +1,7 @@
 [build-system]
-requires = ["hatchling>=1.18.0"]  # Only build tools here
+requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
+
 
 [project]
 name = "AnalysisWeb"
@@ -8,28 +9,44 @@ version = "0.0.0"
 authors = [
     { name = "Ragansu Chakkappai", email = "ragansu.chakkappai@universite-paris-saclay.fr" }
 ]
-description = "AnalysisWeb"
+
+description = "Local web dashboard for viewing analysis results"
 readme = "README.md"
 requires-python = ">=3.9"
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
 dependencies = [
-    "Flask>=3.0.0",       
-    "pandas>=2.2.2",          
-    "numpy>=1.26.4",       # (pandas dependency, but good to specify)
-    "requests>=2.31.0",         
-    # The following are in the standard library and should NOT be included:
-    # "os", "glob", "pathlib", "datetime", "warnings", "argparse"
+    "Flask>=3.0.0",
+    "pandas>=2.2.2",
+    "numpy>=1.26.4",
+    "requests>=2.31.0",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/AnalysisWeb"]
 
+# Creates the command:
+#   analysisweb --results-dir ... --json-dir ...
+[project.scripts]
+analysisweb = "analysisweb.cli:main"
+
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/analysisweb"
+]
+
+
+# Include packaged web assets
 [tool.hatch.build]
-include = ["src/AnalysisWeb/templates/**/*", "src/AnalysisWeb/static/**/*"]
+include = [
+    "src/analysisweb/templates/**/*",
+    "src/analysisweb/static/**/*",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/Ragansu/webapp_project"

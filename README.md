@@ -43,8 +43,6 @@ sequencer.add_algorithm(
     plot_label=f"holdout_{args.model_type}",
 )
 
-score = model.scoring()
-sequencer.add_score("score", score)
 
 sequencer.end()
 ```
@@ -53,5 +51,5 @@ sequencer.end()
 you can launch the webapp with 
 
 ```bash
-python -m AnalysisWeb.app --results-dir --csv-dir
+analysisweb --results-dir ./results/ --json-dir json_file/ --config ./static/dashboard.yaml
 ```

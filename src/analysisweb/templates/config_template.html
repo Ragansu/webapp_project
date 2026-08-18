@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/jpg" href="/static/higgs_pot.jpg">
+</head>
+
+<body>
+    <a href="index.html" class="home-button"> 🏠 Home</a>
+    <div class="page-container">
+        <div class="header">
+            <h1>Model Configuration</h1>
+        </div>
+
+        <!-- Simple attributes section -->
+        <div class="section">
+            <h2 class="section-title">Basic Configuration</h2>
+            <div class="attr-grid">
+                {% for attr_name, value in simple_attrs %}
+                <div class="attr-item">
+                    <div class="attr-name">{{ attr_name }}</div>
+                    <div class="attr-value">{{ value }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Lists section -->
+        <div class="section">
+            <h2 class="section-title">Lists</h2>
+            {% for attr_name, attr_value in list_attrs %}
+            <div class="attr-item">
+                <div class="attr-name">{{ attr_name }}</div>
+                <div class="attr-value">
+                    <div class="compact-list">
+                        {% for item in attr_value %}
+                        <pre>{{ item }}</pre>
+                        {% endfor %}
+                    </div>
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Total items: {{ attr_value|length }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Dictionaries section -->
+        <div class="section">
+            <h2 class="section-title">Dictionaries</h2>
+            <div class="attr-grid">
+                {% for attr, display_name in dict_attrs.items() %}
+                <div class="attr-item">
+                    <div class="attr-name">{{ display_name }}</div>
+                    <div class="attr-value">
+                        {% if dictionary_data[attr] %}
+                        <div class="scrollable">
+                            <div class="dict-compact">
+                                {% for key, value in dictionary_data[attr].items() %}
+                                <div class="dict-item-compact">
+                                    <span class="dict-key-compact">{{ key }}:</span>
+                                    <span>{{ value }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div style="font-size: 0.8em; color: #666; margin-top: 8px;">
+                                Total entries: {{ dictionary_data[attr]|length }}
+                            </div>
+                        </div>
+                        {% else %}
+                        Empty dictionary
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

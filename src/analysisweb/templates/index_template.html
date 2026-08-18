@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" type="image/jpg" href="/static/higgs_pot.jpg">
+</head>
+
+<body>
+    <a href="/" class="home-button"> 🏠 Home</a>
+    <div class="index-container">
+        <div class="header">
+            <h1>{{ title }}</h1>
+            <p>Complete overview of all generated analysis reports</p>
+        </div>
+
+        <div class="stats">
+            <strong>Total Files:</strong> {{ html_files|length }} |
+            <strong>Groups:</strong> {{ file_groups|length }} |
+            <strong>Generated:</strong> {{ output_file_stem }}
+        </div>
+
+        {# NLL Results Section #}
+        {% if file_groups.nll_groups %}
+        <div class="category">
+            <h2 class="category-title">NLL Results</h2>
+            <div class="files-grid">
+                {% for group_name, files in file_groups.nll_groups.items() %}
+                <div class="file-group">
+                    <div class="group-title">
+                        {{ group_name.replace('TENSORFLOW_', '').replace('_', ' ').title() }}
+                    </div>
+
+                    {% if files.holdout %}
+                    <a href="{{ files.holdout }}" class="file-link">
+                        Holdout Results <span class="file-type">({{ files.holdout }})</span>
+                    </a>
+                    {% endif %}
+
+                    {% if files.test %}
+                    <a href="{{ files.test }}" class="file-link">
+                        Test Results <span class="file-type">({{ files.test }})</span>
+                    </a>
+                    {% endif %}
+
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Density Ratios Section #}
+        {% if file_groups.density_ratios %}
+        <div class="category">
+            <h2 class="category-title">Density Ratios</h2>
+            <div class="files-grid">
+                {% for base_name, file_path in file_groups.density_ratios.items() %}
+                <div class="file-group">
+                    <a href="{{ file_path }}" class="file-link">
+                        {{ base_name.replace('_density_ratios.html', '').replace('_', ' ').title() }} Density Ratios
+                        <span class="file-type">({{ base_name }})</span>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if file_groups.misc_files %}
+        <div class="category">
+            <h2 class="category-title">Folders</h2>
+            <div class="files-grid">
+                {% for base_name, file_path in file_groups.index_files.items() %}
+                <div class="file-group">
+                    <a href="{{ file_path }}" class="file-link">
+                        {{ base_name }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {# Miscellaneous files section #}
+        {% if file_groups.misc_files %}
+        <div class="category">
+            <h2 class="category-title">Other Reports</h2>
+            <div class="files-grid">
+                {% for base_name, file_path in file_groups.misc_files.items() %}
+                <div class="file-group">
+                    <a href="{{ file_path }}" class="file-link">
+                        {{ base_name }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <script>
+            function openComparison(file1, file2) {
+                // Open both files in new tabs for comparison
+                window.open(file1, '_blank');
+                window.open(file2, '_blank');
+            }
+        </script>
+    </div>
+</body>
+
+</html>

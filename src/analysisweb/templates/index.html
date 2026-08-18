@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.site.browser_title }}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename=config.site.favicon) }}">
+
+    <!-- Inject JSON safely for JS consumption -->
+    <script>
+        console.log("Reached begining of script!"); // If this doesn't log, code crashed above it
+        const DASHBOARD_CONFIG = {{ config | tojson | safe }};
+    </script>
+    
+    <!-- Added defer so script executes after DOM is parsed -->
+    <script src="{{ url_for('static', filename='index.js') }}" defer></script>
+</head>
+<body>
+
+<a href="/" class="home-button">🏠 Home</a>
+
+<div class="index-container">
+
+    <div class="header">
+        <h1>{{ config.header.title }}</h1>
+    </div>
+
+    {% if config.instructions %}
+    <div class="instructions">
+        <h3>How to use this page:</h3>
+        {% for line in config.instructions %}
+        <p>{{ line }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if config.clock and config.clock.enabled %}
+    <div id="clock-header">
+        <div id="digital-clock">00:00:00</div>
+        <button id="toggle-format">Switch to 12h</button>
+    </div>
+    {% endif %}
+
+
+
+    {% if config.pagination %}
+    <div class="pagination">
+        <button id="prevBtn" class="page-btn">&#8592;</button>
+        <span id="pageInfo" class="page-info"></span>
+        <button id="nextBtn" class="page-btn">&#8594;</button>
+    </div>
+    {% endif %}
+
+    <div class="table-container">
+        <div id="loading" class="loading">Loading data...</div>
+        <div id="error" class="error" style="display:none;"></div>
+
+        <table id="data-table" style="display:none;">
+            <thead>
+                <tr>
+                    {% for column in config.columns %}
+                    <th {% if column.sortable %}data-sort="{{ column.key }}"{% endif %}>
+                        {{ column.title }}
+                        {% if column.sortable %}
+                        <span class="sort-icon">↕</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+
+                    {% if config.actions and config.actions.enabled %}
+                    <th>{{ config.actions.title }}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+
+        <button id="reload-button" class="reload-button" style="display:none;">
+            Reload Data
+        </button>
+    </div>
+
+</div>
+
+<div id="notification" class="notification"></div>
+
+</body>
+</html>
