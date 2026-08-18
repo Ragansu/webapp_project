@@ -40,14 +40,6 @@ packages = [
 ]
 
 
-# Include packaged web assets
-[tool.hatch.build]
-include = [
-    "src/analysisweb/templates/**/*",
-    "src/analysisweb/static/**/*",
-]
-
-
 [project.urls]
 Homepage = "https://github.com/Ragansu/webapp_project"
 Issues = "https://github.com/Ragansu/webapp_project/issues"
