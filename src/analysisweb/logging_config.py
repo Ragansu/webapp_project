@@ -5,6 +5,7 @@ import logging
 VERBOSE_LEVEL_NUM = 15
 logging.addLevelName(VERBOSE_LEVEL_NUM, "VERBOSE")
 
+
 def verbose(self, message, *args, **kwargs):
     if self.isEnabledFor(VERBOSE_LEVEL_NUM):
         self._log(VERBOSE_LEVEL_NUM, message, args, **kwargs)
@@ -13,6 +14,8 @@ def verbose(self, message, *args, **kwargs):
 logging.Logger.verbose = verbose
 
 DEFAULT_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+
 def setup_logging(log_level_str=DEFAULT_LOG_LEVEL):
     """Set up logging with custom VERBOSE level."""
 
@@ -38,6 +41,6 @@ def setup_logging(log_level_str=DEFAULT_LOG_LEVEL):
     root.addHandler(handler)
 
     root.debug("Logging initialized with level: %s", log_level_str)
-    
-import os
 
+
+import os

@@ -7,9 +7,7 @@ from .app import create_app
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="Launch AnalysisWeb dashboard"
-    )
+    parser = argparse.ArgumentParser(description="Launch AnalysisWeb dashboard")
 
     parser.add_argument(
         "--results-dir",
@@ -44,13 +42,11 @@ def main():
 
     args = parser.parse_args()
 
-
     app = create_app(
         args.results_dir,
         args.json_dir,
         args.config,
     )
-
 
     url = f"http://127.0.0.1:{args.port}"
 
@@ -59,12 +55,10 @@ def main():
     print(url)
     print()
 
-
     threading.Timer(
         1.0,
         lambda: webbrowser.open(url),
     ).start()
-
 
     app.run(
         host="127.0.0.1",

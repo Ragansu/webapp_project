@@ -1,4 +1,3 @@
-
 import os
 import glob
 from pathlib import Path
@@ -28,13 +27,17 @@ current_dir = os.getcwd()
 _DEFAULT_SAVE_DIR = os.path.join(current_dir, formatted_time)
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 class Status(Enum):
     FAILED = "Failed"
     SUCCESS = "Success"
     SKIPPED = "Skipped"
 
+
 def create_results_index(
-    directory=_DEFAULT_SAVE_DIR, output_file="index.html", title="ML Analysis Results Index"
+    directory=_DEFAULT_SAVE_DIR,
+    output_file="index.html",
+    title="ML Analysis Results Index",
 ):
     """Creates an HTML index page linking to all result files using Jinja2 template."""
 
@@ -374,20 +377,17 @@ def image_gallery_to_html(
 
     return output_file
 
+
 DEFAULT_ENTRY = {
-            "date": formatted_time,
-            "run_time": 0,
-            "Status": "Launched",
-            "link": "/",
-        }
+    "date": formatted_time,
+    "run_time": 0,
+    "Status": "Launched",
+    "link": "/",
+}
+
 
 class Sequencer:
-    def __init__(
-        self,
-        json_dir,
-        plots_dir=None,
-        initial_entry=DEFAULT_ENTRY
-    ):
+    def __init__(self, json_dir, plots_dir=None, initial_entry=DEFAULT_ENTRY):
 
         os.makedirs(json_dir, exist_ok=True)
 
@@ -538,7 +538,6 @@ class Sequencer:
         kwargs = step["kwargs"]
         name = step["name"]
 
-
         try:
             status = func(*args, **kwargs).value  # Assuming func returns a Status enum
 
@@ -590,7 +589,6 @@ class Sequencer:
         self.update(status="Running")
         for step in self.steps:
             self.run_step(step)
-
 
     def start(self):
         self.update(status="Setting Up")

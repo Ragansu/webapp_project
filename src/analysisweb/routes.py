@@ -18,7 +18,6 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-
 def safe_send(directory: Path, filename: str):
 
     directory = directory.resolve()
@@ -60,10 +59,9 @@ def register_routes(app):
 
         if app.debug:
             logger.verbose(f"JSON_DIR: %s", json_dir)
-            logger.verbose(f"Filename: %s" ,filename)
+            logger.verbose(f"Filename: %s", filename)
             logger.verbose(f"Looking for: {file_path}")
             logger.verbose(f"Exists: {isExists}")
-
 
         if not file_path.exists():
             logger.error(f"File does not exist: {file_path}")
@@ -80,7 +78,6 @@ def register_routes(app):
         if not folder.startswith("result_"):
             abort(404)
 
-
         result_dir = current_app.config["RESULTS_DIR"].resolve()
         full_folder_path = result_dir / folder
         isExists = full_folder_path.exists()
@@ -96,9 +93,7 @@ def register_routes(app):
         return safe_send(
             full_folder_path,
             filename,
-    )
-    
-
+        )
 
     @app.route("/send_sbatch_job", methods=["POST"])
     def send_sbatch_job():
@@ -112,7 +107,6 @@ def register_routes(app):
             return jsonify({"status": "success", "output": result})
         except subprocess.CalledProcessError as e:
             return jsonify({"status": "error", "output": e.stderr}), 500
-
 
     @app.route("/cancel_sbatch_job", methods=["POST"])
     def cancel_sbatch_job():
