@@ -1,3 +1,5 @@
+"""Command-line entry point for launching the AnalysisWeb dashboard."""
+
 import argparse
 import threading
 import webbrowser
@@ -6,6 +8,7 @@ from .app import create_app
 
 
 def main():
+    """Parse CLI arguments and start the dashboard web application."""
 
     parser = argparse.ArgumentParser(description="Launch AnalysisWeb dashboard")
 

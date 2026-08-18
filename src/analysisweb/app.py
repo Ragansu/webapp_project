@@ -1,3 +1,5 @@
+"""Application factory for the analysis web dashboard."""
+
 from pathlib import Path
 
 from flask import Flask
@@ -11,13 +13,14 @@ PACKAGE_DIR = Path(__file__).parent
 
 
 def load_config(filename):
+    """Load and parse a YAML dashboard configuration file."""
 
     path = Path(filename)
 
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {filename}")
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -26,6 +29,7 @@ def create_app(
     json_dir,
     config_file=None,
 ):
+    """Create and configure the Flask application instance."""
     app = Flask(
         __name__,
         template_folder=str(PACKAGE_DIR / "templates"),

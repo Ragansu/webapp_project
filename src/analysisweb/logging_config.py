@@ -41,6 +41,3 @@ def setup_logging(log_level_str=DEFAULT_LOG_LEVEL):
     root.addHandler(handler)
 
     root.debug("Logging initialized with level: %s", log_level_str)
-
-
-import os
