@@ -975,3 +975,9 @@ tr:hover {
     opacity: 0.8;
 }
 
+.line {
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    /* preserves \n but wraps text */
+    margin-bottom: 0.5rem;
+}

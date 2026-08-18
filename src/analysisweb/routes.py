@@ -14,9 +14,6 @@ from flask import (
     send_from_directory,
 )
 
-from .logging_config import setup_logging
-
-setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -65,10 +62,10 @@ def register_routes(app):
         exists = file_path.exists()
 
         if app.debug:
-            logger.verbose("JSON_DIR: %s", json_dir)
-            logger.verbose("Filename: %s", filename)
-            logger.verbose("Looking for: %s", file_path)
-            logger.verbose("Exists: %s", exists)
+            logger.debug("JSON_DIR: %s", json_dir)
+            logger.debug("Filename: %s", filename)
+            logger.debug("Looking for: %s", file_path)
+            logger.debug("Exists: %s", exists)
 
         if not file_path.exists():
             logger.error("File does not exist: %s", file_path)
@@ -91,9 +88,9 @@ def register_routes(app):
         exists = full_folder_path.exists()
 
         if app.debug:
-            logger.verbose("RESULTS_DIR: %s", result_dir)
-            logger.verbose("Folder: %s", folder)
-            logger.verbose("Exists: %s", exists)
+            logger.debug("RESULTS_DIR: %s", result_dir)
+            logger.debug("Folder: %s", folder)
+            logger.debug("Exists: %s", exists)
 
         if not full_folder_path.is_dir():
             abort(404)

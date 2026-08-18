@@ -10,10 +10,8 @@ import warnings
 import logging
 from jinja2 import Environment, FileSystemLoader
 
-from .logging_config import setup_logging
 from . import Status
 
-setup_logging()
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
