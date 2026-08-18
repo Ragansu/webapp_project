@@ -1,0 +1,78 @@
+site:
+  title: "ML Pipeline Monitor"
+  browser_title: "ML Pipeline Runs"
+  favicon: "housing.jpg"
+
+header:
+  title: "California Housing — ML Pipeline"
+
+data:
+  index_file: "index.json"
+
+instructions:
+  - "Each row represents an ML pipeline run. Click a row to inspect the individual steps and their results."
+  - 'Click the "Run Pipeline" button to start a new California Housing training run. The pipeline runs in the background and its progress can be monitored from the table below.'
+  - "Each pipeline consists of loading the dataset, splitting the data, training the model, evaluating the results, and saving the trained model."
+
+clock:
+  enabled: true
+  default_24h: true
+
+pagination: true
+
+columns:
+  - key: date
+    title: Date
+    sortable: true
+    type: normal
+
+  - key: pid
+    title: Process ID
+    sortable: true
+    type: normal
+
+  - key: dataset
+    title: Dataset
+    sortable: true
+    type: normal
+
+  - key: model
+    title: Model
+    sortable: true
+    type: normal
+
+  - key: samples
+    title: Samples
+    sortable: true
+    type: normal
+
+  - key: run_time
+    title: Run Time (s)
+    sortable: true
+    type: normal
+
+  - key: rmse
+    title: RMSE
+    sortable: true
+    type: normal
+
+  - key: Status
+    title: Status
+    sortable: true
+    type: status
+
+  - key: action
+    title: Action
+    sortable: false
+    type: action
+
+
+action:
+  - key: run_script
+    title: Run Script
+    type: button
+    action_type: run_script
+    job_plugin: "job_manager.py"
+    job_flags: 
+    - key: "retrain"
+      value: ""

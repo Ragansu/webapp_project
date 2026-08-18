@@ -42,9 +42,12 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
                 "link": "/",
             }
 
+        self.free_keys = set(initial_entry.keys()) - {"date", "link"}
+
         os.makedirs(json_dir, exist_ok=True)
 
         self.entry_file = os.path.join(json_dir, f"{initial_entry['date']}.json")
+        print(self.entry_file )
         self.index_file = os.path.join(json_dir, "index.json")
 
         self.__entry_dict__ = initial_entry
@@ -118,7 +121,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
     # Public update hook
     # ------------------------
 
-    def update(self, status=""):
+    def update(self, result={"Status":""}):
         """Refresh the run record and append a time-stamp entry to the CSV log.
 
         Args:
@@ -128,7 +131,11 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         if self.start_time:
             self.__entry_dict__["run_time"] = (now - self.start_time).total_seconds()
 
-        self.__entry_dict__["Status"] = status
+        result_keys = set(result.keys())
+
+        for key in result_keys & self.free_keys:
+            self.__entry_dict__[key] = result[key]
+
         self._write_entry()
 
         # Regenerate HTML if needed
@@ -197,11 +204,11 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         args = step["args"]
         kwargs = step["kwargs"]
         name = step["name"]
+        result= {"Status":""}
 
         try:
-            status = func(*args, **kwargs).value  # Assuming func returns a Status enum
-
-            status = status + " | " + name
+            result = func(*args, **kwargs)  # Assuming func returns a Status enum        
+            status = result["Status"].value + " | " + name
 
         except Exception as e:
             logger.error("Error during %s: %s", name, e)
@@ -209,7 +216,8 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
 
             raise e
         finally:
-            self.update(status=status)
+            result["Status"] = status
+            self.update(result=result)
 
     def add_subsequence(self, func, *args, **kwargs):
         """Append a list of substeps returned by a factory function to the sequence."""
@@ -249,19 +257,20 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
 
     def run(self):
         """Execute all queued steps in order and update the overall run state."""
-        self.update(status="Running")
+        self.update({"Status":"Running"})
         for step in self.steps:
             self.run_step(step)
 
     def start(self):
         """Start timing for the full sequence and mark the run as setting up."""
-        self.update(status="Setting Up")
+        
+        self.update({"Status":"Setting Up"})
         self.start_time = datetime.now()
 
     def end(self):
         """Mark the sequence as completed."""
-        self.update("Completed")
+        self.update({"Status":"Completed"})
 
     def cancel(self):
         """Mark the sequence as cancelled."""
-        self.update("Cancelled")
+        self.update({"Status":"Cancelled"})

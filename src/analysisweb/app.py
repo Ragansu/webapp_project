@@ -44,9 +44,9 @@ def create_app(
     else:
         app.config["DASHBOARD_CONFIG"] = {}
 
-    backend_path = app.config["DASHBOARD_CONFIG"]["action"][0]["job_plugin"]
-
-    app.job_backend = load_job_plugin(backend_path)
+    if "action" in app.config["DASHBOARD_CONFIG"].keys():
+        backend_path = app.config["DASHBOARD_CONFIG"]["action"][0]["job_plugin"]
+        app.job_backend = load_job_plugin(backend_path)
 
     register_routes(app)
 
