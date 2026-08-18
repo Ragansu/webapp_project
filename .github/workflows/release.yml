@@ -3,21 +3,20 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - "v*.*.*"  # Triggers when you push a tag like v1.0.2
-  workflow_dispatch: # Allows you to click "Run workflow" manually in GitHub Actions
+      - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    
-    # This block is CRITICAL for Trusted Publishing (OIDC)
+
     environment:
-      name: pypi  # MUST match the environment name in your PyPI settings
-      url: https://pypi.org/p/analysisweb/  # Optional: URL to your package on PyPI
+      name: pypi
+      url: https://pypi.org/project/analysisweb/
 
     permissions:
-      id-token: write # Required for passwordless upload
-      contents: read  # Required for checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -31,10 +30,10 @@ jobs:
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          python -m pip install build
 
       - name: Build package
         run: python -m build
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1 
+        uses: pypa/gh-action-pypi-publish@release/v1
