@@ -45,9 +45,10 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         self.free_keys = set(initial_entry.keys()) - {"date", "link"}
 
         os.makedirs(json_dir, exist_ok=True)
+        if plots_dir is not None:
+            os.makedirs(plots_dir, exist_ok=True)
 
         self.entry_file = os.path.join(json_dir, f"{initial_entry['date']}.json")
-        print(self.entry_file )
         self.index_file = os.path.join(json_dir, "index.json")
 
         self.__entry_dict__ = initial_entry

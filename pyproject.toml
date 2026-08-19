@@ -39,6 +39,8 @@ packages = [
     "src/analysisweb"
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.urls]
 Homepage = "https://github.com/Ragansu/webapp_project"
