@@ -11,7 +11,7 @@ data:
 
 instructions:
   - "Each row represents an ML pipeline run. Click a row to inspect the individual steps and their results."
-  - 'Click the "Run Pipeline" button to start a new California Housing training run. The pipeline runs in the background and its progress can be monitored from the table below.'
+  - 'Click the "Run script" button to start a new California Housing training run. The pipeline runs in the background and its progress can be monitored from the table below.'
   - "Each pipeline consists of loading the dataset, splitting the data, training the model, evaluating the results, and saving the trained model."
 
 clock:
