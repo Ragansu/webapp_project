@@ -322,33 +322,49 @@ def save_table_html(df, title, filename):
 
 
 def image_gallery_to_html(
-    file_paths,
-    titles=None,
+    images,
     output_file="image_gallery.html",
     file_title="Image Gallery",
     dictionary_data=None,
     index_dir="index.html",
 ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
-    Create an HTML page with multiple base64 images in a gallery layout using Jinja2.
+    Generate an HTML image gallery page from a list of image entries.
 
     Args:
-        images_data: List of base64 encoded image strings OR BytesIO objects
-        titles: List of titles for each image (optional)
-        output_file: Output HTML filename
-        file_title: Page title
+        images: A list of dictionaries describing each image. Each item should
+            include at least a file path or source and optional metadata such as
+            title, caption, and index.
+        output_file: Name or path of the generated HTML output file.
+        file_title: Title displayed on the rendered gallery page.
+        dictionary_data: Optional additional metadata to pass to the template.
+        index_dir: Path or filename used for the gallery index link.
+
+    Example:
+        ```python
+        images = []
+        image_path = "actual_vs_predicted.png"
+        plt.savefig(output_dir / image_path, dpi=150)
+        plt.close()
+
+        images.append(
+            {
+                "title": "Actual vs Predicted House Values",
+                "file_path": image_path,
+                "index": 0,
+            }
+        )
+
+        image_gallery_to_html(
+            images=images,
+            output_file="image_gallery.html",
+            file_title="Image Gallery",
+        )
+        ```
     """
 
     # Setup Jinja2 environment
     env = Environment(loader=FileSystemLoader(f"{repo_dir}/templates"))
-
-    # Prepare image list
-    if titles is None:
-        titles = [f"Image {i+1}" for i in range(len(file_paths))]
-
-    images = []
-    for i, (file_path, title) in enumerate(zip(file_paths, titles)):
-        images.append({"file_path": file_path, "title": title, "index": i + 1})
 
     # Prepare template data
     template_data = {

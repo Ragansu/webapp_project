@@ -122,12 +122,13 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
     # Public update hook
     # ------------------------
 
-    def update(self, result={"Status": ""}):
+    def update(self, result):
         """Refresh the run record and append a time-stamp entry to the CSV log.
 
         Args:
             status: A status string describing the current execution state.
         """
+
         now = datetime.now()
         if self.start_time:
             self.__entry_dict__["run_time"] = (now - self.start_time).total_seconds()
