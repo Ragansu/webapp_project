@@ -1,17 +1,16 @@
 site:
   title: "ML Pipeline Monitor"
   browser_title: "ML Pipeline Runs"
-  favicon: "housing.jpg"
 
 header:
-  title: "California Housing — ML Pipeline"
+  title: "Housing — ML Pipeline"
 
 data:
   index_file: "index.json"
 
 instructions:
   - "Each row represents an ML pipeline run. Click a row to inspect the individual steps and their results."
-  - 'Click the "Run script" button to start a new California Housing training run. The pipeline runs in the background and its progress can be monitored from the table below.'
+  - 'Click the "Run script" button to start a new Housing data training run. The pipeline runs in the background and its progress can be monitored from the table below.'
   - "Each pipeline consists of loading the dataset, splitting the data, training the model, evaluating the results, and saving the trained model."
 
 clock:
