@@ -1,3 +1,5 @@
+"""Tests for the Sequencer workflow"""
+
 import json
 import os
 
@@ -115,9 +117,13 @@ def test_create_substep_uses_function_name():
     assert (
         step["name"] == "test_create_substep_uses_function_name.<locals>.my_algorithm"
     )
+
+    assert isinstance(step["args"], tuple)
+    assert isinstance(step["kwargs"], dict)
+
     assert step["func"] is my_algorithm
-    assert step["args"] == ()
-    assert step["kwargs"] == {}
+    assert not step["args"]
+    assert not step["kwargs"]
     assert step["aux"] is False
 
 
@@ -139,6 +145,8 @@ def test_create_substep_preserves_args_and_kwargs():
     """Test that create_substep preserves function arguments and keyword arguments."""
 
     def my_algorithm(a, b, option=None):
+        _ = a + b + len(option)
+
         pass
 
     step = Sequencer.create_substep(
@@ -157,6 +165,7 @@ def test_create_substep_handles_data_label():
     """Test that create_substep handles data_label parameter."""
 
     def my_algorithm(data):
+        _ = data
         pass
 
     step = Sequencer.create_substep(

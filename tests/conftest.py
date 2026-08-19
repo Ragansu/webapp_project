@@ -1,3 +1,5 @@
+"""Configs for pytests"""
+
 import pytest
 
 from analysisweb.sequencer import Sequencer
