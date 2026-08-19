@@ -147,8 +147,6 @@ def test_create_substep_preserves_args_and_kwargs():
     def my_algorithm(a, b, option=None):
         _ = a + b + len(option)
 
-        pass
-
     step = Sequencer.create_substep(
         my_algorithm,
         10,
@@ -166,7 +164,6 @@ def test_create_substep_handles_data_label():
 
     def my_algorithm(data):
         _ = data
-        pass
 
     step = Sequencer.create_substep(
         my_algorithm,
