@@ -162,3 +162,5 @@ cython_debug/
 
 #other
 results
+json
+.ruff_cache

@@ -80,9 +80,6 @@ def register_routes(app):
     def result_files(folder, filename):
         """Serve a file from a result folder after validating the path."""
 
-        if not folder.startswith("result_"):
-            abort(404)
-
         result_dir = current_app.config["RESULTS_DIR"].resolve()
         full_folder_path = result_dir / folder
         exists = full_folder_path.exists()

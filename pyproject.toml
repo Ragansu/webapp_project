@@ -12,7 +12,7 @@ authors = [
 
 description = "Local web dashboard for viewing analysis results"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -39,6 +39,8 @@ packages = [
     "src/analysisweb"
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.urls]
 Homepage = "https://github.com/Ragansu/webapp_project"
