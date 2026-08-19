@@ -11,6 +11,7 @@ from analysisweb.sequencer import Sequencer
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def successful_step():
     return {"Status": Status.SUCCESS}
 
@@ -22,6 +23,7 @@ def another_successful_step():
 # ---------------------------------------------------------------------------
 # Initialization / persistence
 # ---------------------------------------------------------------------------
+
 
 def test_sequencer_creates_directories_and_files(tmp_path):
     json_dir = tmp_path / "json"
@@ -96,13 +98,16 @@ def test_existing_entry_is_loaded(tmp_path):
 # create_substep
 # ---------------------------------------------------------------------------
 
+
 def test_create_substep_uses_function_name():
     def my_algorithm():
         pass
 
     step = Sequencer.create_substep(my_algorithm)
 
-    assert step["name"] == "test_create_substep_uses_function_name.<locals>.my_algorithm"
+    assert (
+        step["name"] == "test_create_substep_uses_function_name.<locals>.my_algorithm"
+    )
     assert step["func"] is my_algorithm
     assert step["args"] == ()
     assert step["kwargs"] == {}
@@ -148,8 +153,7 @@ def test_create_substep_handles_data_label():
     )
 
     assert step["name"] == (
-        "test_create_substep_handles_data_label.<locals>.my_algorithm"
-        "(training)"
+        "test_create_substep_handles_data_label.<locals>.my_algorithm" "(training)"
     )
 
 
@@ -168,6 +172,7 @@ def test_create_substep_can_be_auxiliary():
 # ---------------------------------------------------------------------------
 # Adding algorithms / subsequences
 # ---------------------------------------------------------------------------
+
 
 def test_add_algorithm_adds_step(sequencer):
     sequencer.add_algorithm(successful_step)
@@ -231,6 +236,7 @@ def test_add_subsequence(sequencer):
 # Execution
 # ---------------------------------------------------------------------------
 
+
 def test_run_executes_steps_in_order(sequencer):
     executed = []
 
@@ -293,6 +299,7 @@ def test_run_passes_step_arguments(sequencer):
 # Failure handling
 # ---------------------------------------------------------------------------
 
+
 def test_failed_step_raises_exception(sequencer):
     def broken_algorithm():
         raise RuntimeError("boom")
@@ -352,6 +359,7 @@ def test_failure_stops_following_steps(sequencer):
 # Status lifecycle
 # ---------------------------------------------------------------------------
 
+
 def test_start_sets_setting_up(sequencer):
     sequencer.start()
 
@@ -372,9 +380,7 @@ def test_run_sets_running_before_steps(sequencer):
     observed_statuses = []
 
     def step():
-        observed_statuses.append(
-            sequencer.__entry_dict__["Status"]
-        )
+        observed_statuses.append(sequencer.__entry_dict__["Status"])
         return {"Status": Status.SUCCESS}
 
     sequencer.add_algorithm(step)
@@ -402,6 +408,7 @@ def test_cancel_sets_cancelled(sequencer):
 # ---------------------------------------------------------------------------
 # Update / persistence
 # ---------------------------------------------------------------------------
+
 
 def test_update_persists_status(sequencer):
     sequencer.update({"Status": "Running"})
@@ -441,6 +448,7 @@ def test_update_does_not_add_unknown_keys(sequencer):
 # Index handling
 # ---------------------------------------------------------------------------
 
+
 def test_index_contains_entry(sequencer):
     with open(sequencer.index_file, encoding="utf-8") as f:
         index = json.load(f)
@@ -477,6 +485,7 @@ def test_index_does_not_duplicate_entry(tmp_path):
 # ---------------------------------------------------------------------------
 # Sequence printing
 # ---------------------------------------------------------------------------
+
 
 def test_print_sequence_contains_main_steps(sequencer):
     sequencer.add_algorithm(
@@ -516,6 +525,7 @@ def test_print_sequence_excludes_auxiliary_steps(sequencer):
 # ---------------------------------------------------------------------------
 # Timing / CSV
 # ---------------------------------------------------------------------------
+
 
 def test_update_creates_time_record(sequencer):
     sequencer.update({"Status": "Running"})
@@ -560,6 +570,7 @@ def test_update_records_multiple_status_changes(sequencer):
 # ---------------------------------------------------------------------------
 # Full lifecycle
 # ---------------------------------------------------------------------------
+
 
 def test_full_sequence_lifecycle(sequencer):
     executed = []

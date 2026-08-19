@@ -25,26 +25,33 @@ For each process (eg. "fit", "valid", "analysis" ...) set the result as a string
 
 ### Example usage
 ```python
-sequencer = Sequencer(
-    plots_data_file, model.timestamp, config.model_type)
+from your_project import Model  # Example of a class which handles the main functionalities.
+from some_dataset import 
 
+model = Model()
+
+sequencer = Sequencer(
+    plots_dir=plots_dir,
+    json_dir="json",
+)
 
 sequencer.start()
 
 sequencer.add_algorithm(
-    model.analyze, holdout_sets=holdout_sets, training_sets=train_sets
+    model.analyze, train_sets=train_sets
 )
 
-sequencer.add_algorithm(model.compute_yield, holdout_sets=holdout_sets)
+sequencer.add_algorithm(model.compute_yield, train_sets=train_sets)
 
 sequencer.add_algorithm(
     model.validation,
-    test_sets=holdout_sets,
-    plot_label=f"holdout_{args.model_type}",
+    test_sets=test_sets,
 )
 
-
+sequencer.print_sequence()
+sequencer.run()
 sequencer.end()
+
 ```
 
 ## Web APP

@@ -1,5 +1,5 @@
 import os
-import argparse 
+import argparse
 from analysisweb.sequencer import Sequencer
 from analysisweb.reports import text_report_to_html
 from example_project import HousingModel
@@ -20,7 +20,7 @@ args = parser.parse_args()
 
 initial_entry = {
     "date": args.unique_date,
-    "pid" : 0,
+    "pid": 0,
     "dataset": "California Housing",
     "model": "Linear Regression",
     "samples": 500,
@@ -69,12 +69,6 @@ sequencer.add_algorithm(
     output_path="results/housing_model.pkl",
 )
 
-str_sq = sequencer.print_sequence()
-text_report_to_html(
-    text=str_sq,
-    filename=os.path.join(plots_dir, "sequence_report.html"),
-    title="Execution Sequence",
-)
+sequencer.print_sequence()
 sequencer.run()
-
 sequencer.end()

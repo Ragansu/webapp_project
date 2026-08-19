@@ -29,8 +29,8 @@ class HousingModel:
     def load_dataset(self, dataset_name="california_housing"):
         housing = fetch_california_housing(as_frame=True)
 
-        self.X = housing.data.iloc[:self.data_size]
-        self.y = housing.target.iloc[:self.data_size]
+        self.X = housing.data.iloc[: self.data_size]
+        self.y = housing.target.iloc[: self.data_size]
 
         time.sleep(2)
 
@@ -61,9 +61,7 @@ class HousingModel:
         }
 
     def train_model(self, fit_intercept=True):
-        self.model = LinearRegression(
-            fit_intercept=fit_intercept
-        )
+        self.model = LinearRegression(fit_intercept=fit_intercept)
 
         self.model.fit(
             self.X_train,
@@ -80,10 +78,13 @@ class HousingModel:
         predictions = self.model.predict(self.X_test)
 
         if metric == "rmse":
-            self.score = mean_squared_error(
-                self.y_test,
-                predictions,
-            ) ** 0.5
+            self.score = (
+                mean_squared_error(
+                    self.y_test,
+                    predictions,
+                )
+                ** 0.5
+            )
         else:
             raise ValueError(f"Unsupported metric: {metric}")
 

@@ -23,7 +23,7 @@ def submit_job(data, unique_date):
     command = (
         f'python "{current_dir}/run_script.py" --unique-date {unique_date} '
         f'> "{current_dir}/log_{unique_date}.log" '
-        f'2>&1'
+        f"2>&1"
     )
 
     print(f"Selected flags: {selected_flags}")
@@ -42,7 +42,7 @@ def submit_job(data, unique_date):
 
     initial_entry = {
         "date": unique_date,
-        "pid" : process.pid,
+        "pid": process.pid,
         "dataset": "California Housing",
         "model": "Linear Regression",
         "samples": 500,

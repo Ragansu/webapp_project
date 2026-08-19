@@ -12,7 +12,7 @@ import json
 
 import logging
 
-from .reports import create_results_index
+from .reports import create_results_index, text_report_to_html
 from . import Status
 
 logger = logging.getLogger(__name__)
@@ -122,7 +122,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
     # Public update hook
     # ------------------------
 
-    def update(self, result={"Status":""}):
+    def update(self, result={"Status": ""}):
         """Refresh the run record and append a time-stamp entry to the CSV log.
 
         Args:
@@ -205,10 +205,10 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         args = step["args"]
         kwargs = step["kwargs"]
         name = step["name"]
-        result= {"Status":""}
+        result = {"Status": ""}
 
         try:
-            result = func(*args, **kwargs)  # Assuming func returns a Status enum        
+            result = func(*args, **kwargs)  # Assuming func returns a Status enum
             status = result["Status"].value + " | " + name
 
         except Exception as e:
@@ -254,24 +254,30 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
 
         print(sequence_str)
 
+        text_report_to_html(
+            text=sequence_str,
+            filename=os.path.join(self.plots_dir, "sequence_report.html"),
+            title="Execution Sequence",
+        )
+
         return sequence_str
 
     def run(self):
         """Execute all queued steps in order and update the overall run state."""
-        self.update({"Status":"Running"})
+        self.update({"Status": "Running"})
         for step in self.steps:
             self.run_step(step)
 
     def start(self):
         """Start timing for the full sequence and mark the run as setting up."""
-        
-        self.update({"Status":"Setting Up"})
+
+        self.update({"Status": "Setting Up"})
         self.start_time = datetime.now()
 
     def end(self):
         """Mark the sequence as completed."""
-        self.update({"Status":"Completed"})
+        self.update({"Status": "Completed"})
 
     def cancel(self):
         """Mark the sequence as cancelled."""
-        self.update({"Status":"Cancelled"})
+        self.update({"Status": "Cancelled"})
