@@ -110,7 +110,7 @@ sequencer.end()
 
 ```
 
-For more deatils checkout the example scripts at `example`. The scripts include a `job_manager.py` to launch scripts from the action button, `example_project.py` and `run_script.py` to run the jobs and `example_dash.yaml` for the dashboard config. One the run the example python job with
+For more deatils checkout the example scripts at `example`. The scripts include a `job_manager.py` to launch scripts from the action button, `example_project.py` and `run_script.py` to run the jobs and `example_dash.yaml` for the dashboard config. One can run the example python job with
 
 ```bash
 cd example
