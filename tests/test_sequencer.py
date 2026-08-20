@@ -8,7 +8,6 @@ import pytest
 from analysisweb import Status
 from analysisweb.sequencer import Sequencer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

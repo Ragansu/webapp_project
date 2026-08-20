@@ -114,7 +114,7 @@ For more deatils checkout the example scripts at `example`. The scripts include 
 
 ```bash
 cd example
-python run_scripts --unique-date 20260819_17_29_45
+python run_scripts --unique-date 0
 ```
 
 The web-app can be lanched from the `example` directory with,
