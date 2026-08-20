@@ -43,7 +43,7 @@ def create_results_index(
     # Setup Jinja2 environment
 
     root_dir = os.path.dirname(output_file)
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     top_folders = glob.glob(os.path.join(directory, "*/"))
     folders = set(top_folders)  # These paths end with os.sep
@@ -147,7 +147,7 @@ def config_to_html(config, filename="config_report.html"):
     """Creates an HTML report of the configuration object with compact layout."""
 
     # Create Jinja2 environment
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     # Prepare data for template
     list_attrs = []
@@ -203,7 +203,7 @@ def text_report_to_html(text, title="Report", filename="text_report.html"):
     """
 
     # Setup Jinja2 environment
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     # Prepare data for template
     template_data = {
@@ -238,7 +238,7 @@ def image_report_to_html(
     """
 
     # Setup Jinja2 environment
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     # Handle single image or list of images
     if isinstance(base64_images, str):
@@ -266,7 +266,7 @@ def save_table_html(df, title, filename):
     """Saves a DataFrame as an HTML file using Jinja2 templates for clean appending."""
 
     # Setup Jinja2 environment
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     # Generate table HTML
     table_html = df.to_html(
@@ -371,7 +371,7 @@ def image_gallery_to_html(
     """
 
     # Setup Jinja2 environment
-    env =_get_template_environment()
+    env = _get_template_environment()
 
     # Prepare template data
     template_data = {

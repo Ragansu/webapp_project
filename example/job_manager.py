@@ -14,7 +14,6 @@ import subprocess
 import yaml
 from analysisweb.sequencer import Sequencer
 
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 json_dir = os.path.join(current_dir, "json")
 
@@ -24,6 +23,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
+
 
 def get_initial_entry(path):
     """Loads initial entry data from YAML config file."""

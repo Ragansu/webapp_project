@@ -8,7 +8,6 @@ import yaml
 from .routes import register_routes
 from .plugin_loader import load_job_plugin
 
-
 PACKAGE_DIR = Path(__file__).parent
 
 

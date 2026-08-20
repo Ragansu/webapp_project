@@ -29,9 +29,7 @@ def test_create_results_index(tmp_path):
     )
 
     # Density ratio
-    (results_dir / "model_density_ratios.html").write_text(
-        "density", encoding="utf-8"
-    )
+    (results_dir / "model_density_ratios.html").write_text("density", encoding="utf-8")
 
     # Miscellaneous
     (results_dir / "some_report.html").write_text("misc", encoding="utf-8")

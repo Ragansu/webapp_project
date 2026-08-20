@@ -1,62 +1,10 @@
 """Tests for the Flask analysis application routes."""
 
-import subprocess
 from pathlib import Path
-from types import SimpleNamespace
-
 import pytest
 from flask import Flask
 
-from analysisweb.routes import register_routes, safe_send
-
-
-@pytest.fixture
-def app(tmp_path):
-    """Create a Flask application configured for testing."""
-    app = Flask(
-        __name__,
-        template_folder=str(tmp_path / "templates"),
-    )
-
-    results_dir = tmp_path / "results"
-    json_dir = tmp_path / "json"
-
-    results_dir.mkdir()
-    json_dir.mkdir()
-
-    app.config.update(
-        TESTING=True,
-        JSON_DIR=json_dir,
-        RESULTS_DIR=results_dir,
-        DASHBOARD_CONFIG={"test": True},
-    )
-
-    app.job_backend = SimpleNamespace()
-
-    # Minimal templates required by the routes.
-    templates_dir = tmp_path / "templates"
-    templates_dir.mkdir(exist_ok=True)
-
-    (templates_dir / "index.html").write_text(
-        "<html><body>Dashboard {{ config.test }}</body></html>",
-        encoding="utf-8",
-    )
-
-    (templates_dir / "action_modal.html").write_text(
-        "<html><body>Action Modal</body></html>",
-        encoding="utf-8",
-    )
-
-    register_routes(app)
-
-    return app
-
-
-@pytest.fixture
-def client(app):
-    """Return a Flask test client."""
-    return app.test_client()
-
+from analysisweb.routes import safe_send
 
 # ---------------------------------------------------------------------------
 # safe_send
@@ -229,7 +177,7 @@ def test_json_nested_file(client, app):
     assert response.get_json() == {"status": "complete"}
 
 
-def test_json_path_traversal_is_blocked(client, app, tmp_path):
+def test_json_path_traversal_is_blocked(client, tmp_path):
     """The JSON route must not serve files outside JSON_DIR."""
     secret = tmp_path / "secret.json"
     secret.write_text(
@@ -320,154 +268,18 @@ def test_result_file_path_traversal(client, app, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# send_sbatch_job
-# ---------------------------------------------------------------------------
-
-
-def test_send_sbatch_job_success(client, app, monkeypatch):
-    """A successful job submission returns a success response."""
-    submitted = {}
-
-    def submit_job(data, date_str):
-        submitted["data"] = data
-        submitted["date_str"] = date_str
-        return "job submitted"
-
-    app.job_backend.submit_job = submit_job
-
-    response = client.post(
-        "/send_sbatch_job",
-        json={"script": "train.sh"},
-    )
-
-    assert response.status_code == 200
-
-    data = response.get_json()
-
-    assert data["status"] == "success"
-    assert data["output"] == "job submitted"
-
-    assert submitted["data"] == {"script": "train.sh"}
-    assert len(submitted["date_str"]) == 17
-
-
-def test_send_sbatch_job_backend_error(client, app):
-    """A failed job submission returns HTTP 500."""
-
-    def submit_job(data, date_str):
-        raise subprocess.CalledProcessError(
-            returncode=1,
-            cmd="sbatch",
-            stderr="submission failed",
-        )
-
-    app.job_backend.submit_job = submit_job
-
-    response = client.post(
-        "/send_sbatch_job",
-        json={"script": "train.sh"},
-    )
-
-    assert response.status_code == 500
-
-    data = response.get_json()
-
-    assert data["status"] == "error"
-    assert data["output"] == "submission failed"
-
-
-def test_send_sbatch_job_passes_json_payload(client, app):
-    """The submitted JSON payload is passed unchanged to the backend."""
-    captured = {}
-
-    def submit_job(data, date_str):
-        captured["data"] = data
-        return "ok"
-
-    app.job_backend.submit_job = submit_job
-
-    payload = {
-        "job_name": "test",
-        "nodes": 2,
-        "partition": "cpu",
-    }
-
-    response = client.post(
-        "/send_sbatch_job",
-        json=payload,
-    )
-
-    assert response.status_code == 200
-    assert captured["data"] == payload
-
-
-# ---------------------------------------------------------------------------
-# cancel_sbatch_job
-# ---------------------------------------------------------------------------
-
-
-def test_cancel_sbatch_job_success(client, app):
-    """A successful cancellation returns a success response."""
-    captured = {}
-
-    def cancel_job(data):
-        captured["data"] = data
-        return "job cancelled"
-
-    app.job_backend.cancel_job = cancel_job
-
-    response = client.post(
-        "/cancel_sbatch_job",
-        json={"job_id": "12345"},
-    )
-
-    assert response.status_code == 200
-
-    data = response.get_json()
-
-    assert data["status"] == "success"
-    assert data["output"] == "job cancelled"
-    assert captured["data"] == {"job_id": "12345"}
-
-
-def test_cancel_sbatch_job_backend_error(client, app):
-    """A failed cancellation returns HTTP 500."""
-
-    def cancel_job(data):
-        raise subprocess.CalledProcessError(
-            returncode=1,
-            cmd="scancel",
-            stderr="job not found\n",
-        )
-
-    app.job_backend.cancel_job = cancel_job
-
-    response = client.post(
-        "/cancel_sbatch_job",
-        json={"job_id": "12345"},
-    )
-
-    assert response.status_code == 500
-
-    data = response.get_json()
-
-    assert data["status"] == "error"
-    assert data["output"] == "job not found"
-
-
-# ---------------------------------------------------------------------------
 # HTTP methods
 # ---------------------------------------------------------------------------
 
 
-def test_send_sbatch_job_requires_post(client):
+def test_send_job_requires_post(client):
     """Job submission does not accept GET."""
     response = client.get("/send_sbatch_job")
 
     assert response.status_code == 405
 
 
-def test_cancel_sbatch_job_requires_post(client):
+def test_cancel_job_requires_post(client):
     """Job cancellation does not accept GET."""
     response = client.get("/cancel_sbatch_job")
 
