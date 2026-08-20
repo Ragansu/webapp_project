@@ -86,7 +86,15 @@ def cancel_job(data):
 
     try:
 
-        os.kill(pid, signal.SIGKILL)
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            os.kill(pid, signal.SIGKILL)
     except ProcessLookupError:
         print(f"No such process with pid {pid}")
 
