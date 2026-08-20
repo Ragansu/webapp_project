@@ -94,7 +94,8 @@ def cancel_job(data):
                 stderr=subprocess.DEVNULL,
             )
         else:
-            os.kill(pid, signal.SIGKILL)
+            os.kill(pid, signal.SIGKILL) # pylint: disable=no-member
+            
     except ProcessLookupError:
         print(f"No such process with pid {pid}")
 
