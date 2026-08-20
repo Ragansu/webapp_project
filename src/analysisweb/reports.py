@@ -8,9 +8,8 @@ from datetime import datetime
 import json
 import warnings
 import logging
+import fnmatch
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-from . import Status
 
 logger = logging.getLogger(__name__)
 
@@ -32,115 +31,171 @@ def _get_template_environment():
         autoescape=select_autoescape(["html", "xml"]),
     )
 
+def display_name(file_path, pattern):
+    file_name = os.path.basename(file_path)
+
+    if file_name == "index.html":
+        name = os.path.basename(os.path.dirname(file_path))
+    else:
+        name = file_name.removesuffix(".html")
+        pattern_stem = pattern.removesuffix(".html")
+
+        prefix, _, suffix = pattern_stem.partition("*")
+
+        if prefix and name.startswith(prefix):
+            name = name[len(prefix):]
+
+        if suffix and name.endswith(suffix):
+            name = name[:-len(suffix)]
+
+        name = name.replace("_", " ")
+        name = name[:1].upper() + name[1:]
+
+    return name.strip()
+
 
 def create_results_index(
+    patterns=None,
     directory=_DEFAULT_SAVE_DIR,
     output_file="index.html",
     title="ML Analysis Results Index",
-):  # pylint: disable=too-many-locals,too-many-statements,too-many-branches
-    """Creates an HTML index page linking to all result files using Jinja2 template."""
+):
+    """Create an HTML index using user-defined file patterns."""
 
-    # Setup Jinja2 environment
-
-    root_dir = os.path.dirname(output_file)
     env = _get_template_environment()
+    root_dir = os.path.dirname(output_file)
 
-    top_folders = glob.glob(os.path.join(directory, "*/"))
-    folders = set(top_folders)  # These paths end with os.sep
-    folders.add(directory)
+    # ---------------------------------------------------------
+    # 1. Collect the files that should actually be indexed.
+    # ---------------------------------------------------------
     html_files = set()
-    processed_files = set()  # Track files we've already added
 
-    # For each folder, check if it has an index.html
-    for folder in folders:
+    if patterns is None:
+        patterns = {}
+
+    patterns = {
+        "Indexes": "index.html",
+        **patterns,
+    }
+
+    # Files directly in the root directory.
+    for file_path in glob.glob(os.path.join(directory, "*.html")):
+        html_files.add(file_path)
+
+    # Check each immediate subfolder.
+    top_folders = glob.glob(os.path.join(directory, "*/"))
+
+    for folder in top_folders:
         index_path = os.path.join(folder, "index.html")
 
-        if os.path.exists(index_path) and (index_path != output_file):
-            if index_path not in processed_files:
-                html_files.add(index_path)
-                processed_files.add(index_path)
+        if os.path.exists(index_path):
+            # If the folder has an index, only show the index.
+            html_files.add(index_path)
         else:
-            folder_files = glob.glob(os.path.join(folder, "*.html"))
-            for file_path in folder_files:
-                if file_path not in processed_files:
-                    html_files.add(file_path)
-                    processed_files.add(file_path)
+            # Otherwise show all HTML files in that folder.
+            for file_path in glob.glob(os.path.join(folder, "*.html")):
+                html_files.add(file_path)
 
-    list(html_files)
-    html_files = sorted(list(html_files))
+    # Never include the index we're generating.
+    html_files.discard(output_file)
 
-    # Separate files into categories
-    nll_groups = {}
-    density_ratios = {}
-    misc_files = {}
-    index_files = {}
+    html_files = sorted(html_files)
 
-    for file_path in html_files:
-        file_name = os.path.basename(file_path)
-        relative_path = os.path.relpath(file_path, root_dir)
-        logger.debug("Relative Path : %s", relative_path)
-        logger.debug("Root Path : %s", root_dir)
-        if "NLLs_" in file_name:
-            # Extract the base name (without test/holdout and extension)
-            base_name = (
-                file_name.replace("NLLs_", "")
-                .replace("_holdout_", "")
-                .replace("_test_", "")
-                .replace(".html", "")
+    # ---------------------------------------------------------
+    # 2. Apply patterns to the collected files.
+    # ---------------------------------------------------------
+    file_groups = {}
+    processed_files = set()
+
+    for group_name, pattern in patterns.items():
+        group_files = []
+
+        for file_path in html_files:
+            file_name = os.path.basename(file_path)
+
+            if not fnmatch.fnmatch(file_name, pattern):
+                continue
+
+            relative_path = os.path.relpath(file_path, root_dir)
+
+            # Remove the matched pattern prefix/suffix from display name.
+            name = file_name.removesuffix(".html")
+            pattern_stem = pattern.removesuffix(".html")
+
+            prefix, _, suffix = pattern_stem.partition("*")
+
+            if prefix and name.startswith(prefix):
+                name = name[len(prefix):]
+
+            if suffix and name.endswith(suffix):
+                name = name[:-len(suffix)]
+
+            name = name.replace("_", " ")
+            name = name[:1].upper() + name[1:]
+
+            group_files.append(
+                {
+                    "name": name.strip(),
+                    "path": relative_path,
+                }
             )
 
-            if base_name not in nll_groups:
-                nll_groups[base_name] = {}
+            processed_files.add(file_path)
 
-            if "holdout" in file_name:
-                nll_groups[base_name]["holdout"] = relative_path
-            elif "test" in file_name:
-                nll_groups[base_name]["test"] = relative_path
+        if group_files:
+            file_groups[group_name] = sorted(
+                group_files,
+                key=lambda item: item["name"],
+            )
 
-        elif file_name.endswith("_density_ratios.html"):
-            logger.debug("File Name : %s", file_name)
-            density_ratios[file_name] = relative_path
+    # ---------------------------------------------------------
+    # 3. Anything that didn't match a pattern goes into
+    #    "Other Reports".
+    # ---------------------------------------------------------
+    misc_files = []
 
-        elif file_name.endswith("index.html"):
-            parent_folder = os.path.basename(os.path.dirname(relative_path))
-            base_name = file_name.replace("index.html", parent_folder)
-            logger.debug("Base Name : %s", base_name)
-            index_files[base_name] = relative_path
-        else:
+    for file_path in html_files:
+        if file_path in processed_files:
+            continue
 
-            base_name = file_name.replace("_", " ").replace(".html", "")
-            logger.debug("Base Name : %s", base_name)
-            misc_files[base_name] = relative_path
+        relative_path = os.path.relpath(file_path, root_dir)
 
-    # Prepare data for template
+        misc_files.append(
+            {
+                "name": (
+                    os.path.basename(file_path)
+                    .removesuffix(".html")
+                    .replace("_", " ")
+                ),
+                "path": relative_path,
+            }
+        )
+
+    if misc_files:
+        file_groups["Other Reports"] = sorted(
+            misc_files,
+            key=lambda item: item["name"],
+        )
+
+    # ---------------------------------------------------------
+    # 4. Render template.
+    # ---------------------------------------------------------
     template_data = {
         "title": title,
         "html_files": html_files,
-        "file_groups": {
-            "nll_groups": nll_groups,
-            "density_ratios": density_ratios,
-            "index_files": index_files,
-            "misc_files": misc_files,
-        },
+        "file_groups": file_groups,
         "output_file_stem": Path(output_file).stem,
     }
 
-    # Load and render template
     template = env.get_template("index_template.html")
     html_content = template.render(**template_data)
 
-    # Write to file
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     logger.info("Index created: %s", output_file)
     logger.info("Total files indexed: %s", len(html_files))
-    logger.info("NLL groups: %s", len(nll_groups))
-    logger.info("Density ratio files: %s", len(density_ratios))
-    logger.info("Index files: %s", len(index_files))
-    logger.info("Miscellaneous files: %s", len(misc_files))
-
-    return Status.SUCCESS
+    logger.info("Groups: %s", len(file_groups))
 
 
 def config_to_html(config, filename="config_report.html"):
@@ -189,8 +244,6 @@ def config_to_html(config, filename="config_report.html"):
     # Save to file
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
-
-    return Status.SUCCESS
 
 
 def text_report_to_html(text, title="Report", filename="text_report.html"):

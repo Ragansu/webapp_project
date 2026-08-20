@@ -43,7 +43,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             }
 
         self.free_keys = set(initial_entry.keys()) - {"date", "link"}
-
+        self.index_page_patterns = {}
         os.makedirs(json_dir, exist_ok=True)
         if plots_dir is not None:
             os.makedirs(plots_dir, exist_ok=True)
@@ -144,8 +144,9 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         if self.plots_dir is not None and os.path.exists(self.plots_dir):
             try:
                 create_results_index(
-                    self.plots_dir,
-                    self.output_html,
+                    patterns=self.index_page_patterns,
+                    directory=self.plots_dir,
+                    output_file=self.output_html,
                     title=os.path.basename(self.plots_dir),
                 )
             except Exception as e:
@@ -206,7 +207,16 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         args = step["args"]
         kwargs = step["kwargs"]
         name = step["name"]
+        aux = step["aux"]
         result = {"Status": ""}
+
+        if aux:
+            try:
+                func(*args, **kwargs)
+                return
+            except Exception as e:
+                logger.error("Error during %s: %s", name, e)
+                raise e
 
         try:
             result = func(*args, **kwargs)  # Assuming func returns a Status enum

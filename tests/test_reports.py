@@ -17,31 +17,47 @@ from analysisweb.reports import (
 )
 
 
-def test_create_results_index(tmp_path):
-    """Creates an index containing all supported HTML file categories."""
+def test_create_results_index_with_patterns(tmp_path):
+    """Creates an index using user-defined file patterns."""
     results_dir = tmp_path / "results"
     results_dir.mkdir()
 
-    # NLL files
-    (results_dir / "NLLs_model_test_run.html").write_text("test", encoding="utf-8")
-    (results_dir / "NLLs_model_holdout_run.html").write_text(
+    # NLL results
+    (results_dir / "Trained_model_test.html").write_text(
+        "test", encoding="utf-8"
+    )
+    (results_dir / "Trained_model_holdout.html").write_text(
         "holdout", encoding="utf-8"
     )
 
-    # Density ratio
-    (results_dir / "model_density_ratios.html").write_text("density", encoding="utf-8")
+    # Plots
+    (results_dir / "plot_training_loss.html").write_text(
+        "plot", encoding="utf-8"
+    )
+    (results_dir / "plot_validation_loss.html").write_text(
+        "plot", encoding="utf-8"
+    )
+
+    # Tables
+    (results_dir / "table_model_performance.html").write_text(
+        "table", encoding="utf-8"
+    )
 
     # Miscellaneous
-    (results_dir / "some_report.html").write_text("misc", encoding="utf-8")
-
-    # Nested folder with an index
-    nested_dir = results_dir / "nested"
-    nested_dir.mkdir()
-    (nested_dir / "index.html").write_text("nested index", encoding="utf-8")
+    (results_dir / "some_report.html").write_text(
+        "misc", encoding="utf-8"
+    )
 
     output_file = tmp_path / "index.html"
 
+    patterns = {
+        "Trained Models": "Trained_*.html",
+        "Plots": "plot_*.html",
+        "Tables": "table_*.html",
+    }
+
     result = create_results_index(
+        patterns=patterns,
         directory=str(results_dir),
         output_file=str(output_file),
         title="Test Results",
@@ -52,11 +68,30 @@ def test_create_results_index(tmp_path):
 
     html = output_file.read_text(encoding="utf-8")
 
+    # Page metadata
     assert "Test Results" in html
-    assert "NLLs_model_test_run.html" in html or "model test run" in html
-    assert "model_density_ratios.html" in html
-    assert "some_report.html" in html
 
+    # Groups
+    assert "Trained Models" in html
+    assert "Plots" in html
+    assert "Tables" in html
+
+    # Pattern prefixes are removed from display names
+    assert "Model test" in html
+    assert "Model holdout" in html
+    assert "Training loss" in html
+    assert "Validation loss" in html
+    assert "Model performance" in html
+
+    # Original pattern prefixes should not appear in display names
+    assert "Trained_model_test" not in html
+    assert "Trained_model_holdout" not in html
+    assert "plot_training_loss" not in html
+    assert "plot_validation_loss" not in html
+    assert "table_model_performance" not in html
+
+    # Unmatched files are still included
+    assert "some_report.html" in html
 
 def test_create_results_index_uses_folder_html_when_no_nested_index(tmp_path):
     """Indexes HTML files from folders that do not contain index.html."""
