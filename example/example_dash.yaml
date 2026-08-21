@@ -82,4 +82,9 @@ action:
     job_plugin: "job_manager.py"
     job_flags:
       - key: "ames-housing"
-        value: ""
+        value: true
+        label: "Ames Housing"
+    job_arguments :
+      - key: "samples"
+        value: 500
+        label: Number of samples
