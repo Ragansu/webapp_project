@@ -31,27 +31,35 @@ def _get_template_environment():
         autoescape=select_autoescape(["html", "xml"]),
     )
 
+
+import os
+
+
 def display_name(file_path, pattern):
     file_name = os.path.basename(file_path)
 
+    # 1. Determine base name stem
     if file_name == "index.html":
         name = os.path.basename(os.path.dirname(file_path))
     else:
         name = file_name.removesuffix(".html")
-        pattern_stem = pattern.removesuffix(".html")
 
-        prefix, _, suffix = pattern_stem.partition("*")
+        # Only strip prefix/suffix if pattern actually contains a wildcard '*'
+        if "*" in pattern:
+            pattern_stem = pattern.removesuffix(".html")
+            prefix, _, suffix = pattern_stem.partition("*")
 
-        if prefix and name.startswith(prefix):
-            name = name[len(prefix):]
+            if prefix and name.startswith(prefix) and len(name) > len(prefix):
+                name = name[len(prefix):]
 
-        if suffix and name.endswith(suffix):
-            name = name[:-len(suffix)]
+            if suffix and name.endswith(suffix):
+                name = name[: -len(suffix)]
 
-        name = name.replace("_", " ")
-        name = name[:1].upper() + name[1:]
+    # 2. Normalize underscores and whitespace
+    name = name.replace("_", " ").strip()
 
-    return name.strip()
+    # 3. Capitalize first letter safely (or return empty string if empty)
+    return name.capitalize() if name else ""
 
 
 def create_results_index(
@@ -111,31 +119,15 @@ def create_results_index(
         group_files = []
 
         for file_path in html_files:
-            file_name = os.path.basename(file_path)
-
-            if not fnmatch.fnmatch(file_name, pattern):
+            if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
                 continue
 
             relative_path = os.path.relpath(file_path, root_dir)
-
-            # Remove the matched pattern prefix/suffix from display name.
-            name = file_name.removesuffix(".html")
-            pattern_stem = pattern.removesuffix(".html")
-
-            prefix, _, suffix = pattern_stem.partition("*")
-
-            if prefix and name.startswith(prefix):
-                name = name[len(prefix):]
-
-            if suffix and name.endswith(suffix):
-                name = name[:-len(suffix)]
-
-            name = name.replace("_", " ")
-            name = name[:1].upper() + name[1:]
+            name = display_name(file_path, pattern)
 
             group_files.append(
                 {
-                    "name": name.strip(),
+                    "name": name,
                     "path": relative_path,
                 }
             )
@@ -162,11 +154,7 @@ def create_results_index(
 
         misc_files.append(
             {
-                "name": (
-                    os.path.basename(file_path)
-                    .removesuffix(".html")
-                    .replace("_", " ")
-                ),
+                "name": display_name(file_path, "*.html"),
                 "path": relative_path,
             }
         )
@@ -386,7 +374,6 @@ def image_gallery_to_html(
     output_file="image_gallery.html",
     file_title="Image Gallery",
     dictionary_data=None,
-    index_dir="index.html",
 ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
     Generate an HTML image gallery page from a list of image entries.
@@ -398,7 +385,6 @@ def image_gallery_to_html(
         output_file: Name or path of the generated HTML output file.
         file_title: Title displayed on the rendered gallery page.
         dictionary_data: Optional additional metadata to pass to the template.
-        index_dir: Path or filename used for the gallery index link.
 
     Example:
         ```python
@@ -431,7 +417,6 @@ def image_gallery_to_html(
         "file_title": file_title,
         "images": images,
         "generation_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "index_dir": index_dir,
     }
 
     if dictionary_data:

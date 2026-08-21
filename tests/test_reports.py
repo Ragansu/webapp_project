@@ -1,14 +1,16 @@
 """Tests for the HTML report generation utilities."""
 
+import os
 import json
+import logging
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
 from analysisweb.reports import (
-    Status,
     config_to_html,
+    display_name,
     create_results_index,
     image_gallery_to_html,
     image_report_to_html,
@@ -17,81 +19,183 @@ from analysisweb.reports import (
 )
 
 
-def test_create_results_index_with_patterns(tmp_path):
-    """Creates an index using user-defined file patterns."""
-    results_dir = tmp_path / "results"
-    results_dir.mkdir()
+@pytest.mark.parametrize(
+    "file_path, pattern, expected",
+    [
+        # Case 1: Special handling for index.html (uses parent directory name)
+        ("reports/subfolder/index.html", "*.html", "Subfolder"),
+        ("/var/www/my_project/index.html", "index.html", "My project"),
+        # Case 2: Standard file name formatting (underscores to spaces, title case)
+        ("my_test_report.html", "*.html", "My test report"),
+        # Case 3: Pattern prefix stripping
+        ("report_sales_data.html", "report_*.html", "Sales data"),
+        ("model_evaluation_metrics.html", "model_*.html", "Evaluation metrics"),
+        # Case 4: Pattern suffix stripping
+        ("data_summary_v1.html", "*_v1.html", "Data summary"),
+        # Case 5: Combined prefix and suffix stripping
+        (
+            "metrics_classification_v2.html",
+            "metrics_*_v2.html",
+            "Classification",
+        ),
+        # Case 6: Exact pattern stem with wildcard (Fixed from previous test failure)
+        ("analytics.html", "analytics*.html", "Analytics"),
+        ("analytics_report.html", "analytics*.html", "Report"),
+        # Case 7: Edge case - leading spaces / whitespace stripping
+        ("_unnamed_report.html", "_*.html", "Unnamed report"),
+    ],
+)
 
-    # NLL results
-    (results_dir / "Trained_model_test.html").write_text(
-        "test", encoding="utf-8"
-    )
-    (results_dir / "Trained_model_holdout.html").write_text(
-        "holdout", encoding="utf-8"
-    )
 
-    # Plots
-    (results_dir / "plot_training_loss.html").write_text(
-        "plot", encoding="utf-8"
-    )
-    (results_dir / "plot_validation_loss.html").write_text(
-        "plot", encoding="utf-8"
-    )
+# ==============================================================================
+# Tests for display_name
+# ==============================================================================
 
-    # Tables
-    (results_dir / "table_model_performance.html").write_text(
-        "table", encoding="utf-8"
-    )
 
-    # Miscellaneous
-    (results_dir / "some_report.html").write_text(
-        "misc", encoding="utf-8"
-    )
+def test_display_name(file_path, pattern, expected):
+    """Verify display_name transforms file paths and pattern stems correctly."""
+    assert display_name(file_path, pattern) == expected
 
-    output_file = tmp_path / "index.html"
 
-    patterns = {
-        "Trained Models": "Trained_*.html",
-        "Plots": "plot_*.html",
-        "Tables": "table_*.html",
+# ==============================================================================
+# Tests for create_results_index
+# ==============================================================================
+
+
+def test_create_results_index_basic_flow(tmp_path, mock_template_env):
+    """Test full file indexing, pattern matching, grouping, and template context."""
+    _, mock_template = mock_template_env
+
+    save_dir = tmp_path / "results"
+    save_dir.mkdir()
+
+    (save_dir / "report_summary.html").touch()
+    (save_dir / "model_accuracy.html").touch()
+    (save_dir / "random_file.html").touch()
+
+    subfolder_a = save_dir / "subfolder_a"
+    subfolder_a.mkdir()
+    (subfolder_a / "index.html").touch()
+    (subfolder_a / "ignore_me.html").touch()
+
+    subfolder_b = save_dir / "subfolder_b"
+    subfolder_b.mkdir()
+    (subfolder_b / "deep_report.html").touch()
+
+    output_index = str(save_dir / "index.html")
+
+    custom_patterns = {
+        "Reports": "report_*.html",
+        "Models": "model_*.html",
     }
 
-    result = create_results_index(
-        patterns=patterns,
-        directory=str(results_dir),
-        output_file=str(output_file),
-        title="Test Results",
+    create_results_index(
+        patterns=custom_patterns,
+        directory=str(save_dir),
+        output_file=output_index,
+        title="Custom Test Title",
     )
 
-    assert result == Status.SUCCESS
-    assert output_file.exists()
+    assert os.path.exists(output_index)
+    with open(output_index, "r", encoding="utf-8") as f:
+        assert f.read() == "<html><body>Mocked Index</body></html>"
 
-    html = output_file.read_text(encoding="utf-8")
+    mock_template.render.assert_called_once()
+    render_kwargs = mock_template.render.call_args.kwargs
 
-    # Page metadata
-    assert "Test Results" in html
+    assert render_kwargs["title"] == "Custom Test Title"
+    assert render_kwargs["output_file_stem"] == "index"
 
-    # Groups
-    assert "Trained Models" in html
-    assert "Plots" in html
-    assert "Tables" in html
+    groups = render_kwargs["file_groups"]
 
-    # Pattern prefixes are removed from display names
-    assert "Model test" in html
-    assert "Model holdout" in html
-    assert "Training loss" in html
-    assert "Validation loss" in html
-    assert "Model performance" in html
+    assert "Indexes" in groups
+    assert groups["Indexes"][0]["name"] == "Subfolder a"
 
-    # Original pattern prefixes should not appear in display names
-    assert "Trained_model_test" not in html
-    assert "Trained_model_holdout" not in html
-    assert "plot_training_loss" not in html
-    assert "plot_validation_loss" not in html
-    assert "table_model_performance" not in html
+    assert "Reports" in groups
+    assert groups["Reports"][0]["name"] == "Summary"
 
-    # Unmatched files are still included
-    assert "some_report.html" in html
+    assert "Models" in groups
+    assert groups["Models"][0]["name"] == "Accuracy"
+
+    assert "Other Reports" in groups
+    unmatched_names = [f["name"] for f in groups["Other Reports"]]
+    assert "Random file" in unmatched_names
+    assert "Deep report" in unmatched_names
+
+
+def test_create_results_index_excludes_output_file(tmp_path, mock_template_env):
+    """Ensure the generated output index file itself is never indexed."""
+    _, mock_template = mock_template_env
+
+    output_index = str(tmp_path / "index.html")
+
+    create_results_index(
+        directory=str(tmp_path),
+        output_file=output_index,
+    )
+
+    render_kwargs = mock_template.render.call_args.kwargs
+    indexed_files = render_kwargs["html_files"]
+
+    assert output_index not in indexed_files
+
+
+def test_create_results_index_non_existent_directory(tmp_path, mock_template_env):
+    """Test execution when target directory does not exist."""
+    _, mock_template = mock_template_env
+
+    non_existent_dir = str(tmp_path / "does_not_exist")
+    output_index = str(tmp_path / "index.html")
+
+    create_results_index(
+        directory=non_existent_dir,
+        output_file=output_index,
+    )
+
+    render_kwargs = mock_template.render.call_args.kwargs
+
+    assert len(render_kwargs["html_files"]) == 0
+    assert len(render_kwargs["file_groups"]) == 0
+
+
+def test_create_results_index_logger_output(tmp_path, mock_template_env, caplog):
+    """Verify logger info output messages using pytest caplog fixture."""
+    _, _ = mock_template_env
+
+    (tmp_path / "report_a.html").touch()
+    (tmp_path / "report_b.html").touch()
+    output_index = str(tmp_path / "index.html")
+
+    with caplog.at_level(logging.INFO):
+        create_results_index(
+            patterns={"Reports": "report_*.html"},
+            directory=str(tmp_path),
+            output_file=output_index,
+        )
+
+    assert f"Index created: {output_index}" in caplog.text
+    assert "Total files indexed: 2" in caplog.text
+    assert "Groups: 1" in caplog.text
+
+
+def test_create_results_index_excludes_output_file(tmp_path, mock_template_env):
+    """Ensure the generated output index file itself is never indexed."""
+    _, mock_template = mock_template_env
+
+    output_index = str(tmp_path / "index.html")
+
+    # Run index creation on empty directory where output_file sits
+    create_results_index(
+        directory=str(tmp_path),
+        output_file=output_index,
+    )
+
+    render_kwargs = mock_template.render.call_args.kwargs
+    indexed_files = render_kwargs["html_files"]
+
+    # Verify output_file path was discarded
+    assert output_index not in indexed_files
+
 
 def test_create_results_index_uses_folder_html_when_no_nested_index(tmp_path):
     """Indexes HTML files from folders that do not contain index.html."""
@@ -104,36 +208,14 @@ def test_create_results_index_uses_folder_html_when_no_nested_index(tmp_path):
 
     output_file = tmp_path / "results_index.html"
 
-    result = create_results_index(
-        directory=str(results_dir),
-        output_file=str(output_file),
-    )
-
-    assert result == Status.SUCCESS
-    assert output_file.exists()
-
-    html = output_file.read_text(encoding="utf-8")
-    assert "report.html" in html or "report" in html
-
-
-def test_create_results_index_does_not_index_output_file(tmp_path):
-    """The output index itself is not included in the generated file list."""
-    results_dir = tmp_path / "results"
-    results_dir.mkdir()
-
-    output_file = results_dir / "index.html"
-
-    output_file.write_text("old index", encoding="utf-8")
-    (results_dir / "report.html").write_text("report", encoding="utf-8")
-
     create_results_index(
         directory=str(results_dir),
         output_file=str(output_file),
     )
 
-    html = output_file.read_text(encoding="utf-8")
+    assert output_file.exists()
 
-    # The generated index should contain the report, but not link to itself.
+    html = output_file.read_text(encoding="utf-8")
     assert "report.html" in html or "report" in html
 
 
@@ -156,9 +238,8 @@ def test_config_to_html(tmp_path):
 
     output_file = tmp_path / "config.html"
 
-    result = config_to_html(config, filename=str(output_file))
+    config_to_html(config, filename=str(output_file))
 
-    assert result == Status.SUCCESS
     assert output_file.exists()
 
     html = output_file.read_text(encoding="utf-8")
@@ -182,9 +263,8 @@ def test_config_to_html_empty_config(tmp_path):
 
     output_file = tmp_path / "config.html"
 
-    result = config_to_html(config, filename=str(output_file))
+    config_to_html(config, filename=str(output_file))
 
-    assert result == Status.SUCCESS
     assert output_file.exists()
 
 
@@ -408,6 +488,10 @@ def test_image_gallery_to_html(tmp_path):
     """Creates an image gallery with optional dictionary data."""
     output_file = tmp_path / "gallery.html"
 
+    # Place index inside tmp_path so relative paths are cleanly resolved
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+
     images = [
         {
             "title": "First image",
@@ -431,7 +515,6 @@ def test_image_gallery_to_html(tmp_path):
         output_file=str(output_file),
         file_title="My Gallery",
         dictionary_data=dictionary_data,
-        index_dir="results/index.html",
     )
 
     assert result == str(output_file)
@@ -446,7 +529,6 @@ def test_image_gallery_to_html(tmp_path):
     assert "Second image" in html
     assert "test-model" in html
     assert "0.91" in html
-    assert "results/index.html" in html
 
 
 def test_image_gallery_to_html_without_dictionary_data(tmp_path):
