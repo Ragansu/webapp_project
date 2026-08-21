@@ -29,12 +29,3 @@ jobs:
       - name: Run tests
         run: |
           pytest --cov=src/analysisweb --cov-report=term-missing --cov-report=xml
-      
-      - name: Post Coverage Comment
-        uses: Murali-FineMind/pytest-coverage-comment@v3
-        with:
-          pytest-coverage-path: coverage.xml
-          title: Coverage Report
-          badge-title: Coverage
-          hide-comment: false
-          create-new-comment: false
