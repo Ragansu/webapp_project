@@ -76,10 +76,11 @@ class HousingModel:  # pylint: disable=too-many-instance-attributes
             housing = fetch_openml(name="house_prices", as_frame=True)
 
             # Keep only numerical features
-            x = housing.data.select_dtypes(
-                include="number"
-            )  # pylint: disable=no-member
-            self.y = housing.target  # pylint: disable=no-member
+            x = housing.data.select_dtypes(include="number").iloc[
+                : self.data_size
+            ]  # pylint: disable=no-member
+
+            self.y = housing.target.iloc[: self.data_size]  # pylint: disable=no-member
 
             # Replace missing values with the median
             imputer = SimpleImputer(strategy="median")

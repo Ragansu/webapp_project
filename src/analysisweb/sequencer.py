@@ -38,12 +38,17 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             initial_entry = {
                 "date": now.strftime("%Y%m%d_%H_%M_%S"),
                 "run_time": 0,
-                "Status": "Launched",
                 "link": "/",
             }
 
+        initial_entry = {
+            "Status": "Launched",
+            **initial_entry,
+        }
+
         self.free_keys = set(initial_entry.keys()) - {"date", "link"}
 
+        self.index_page_patterns = {}
         os.makedirs(json_dir, exist_ok=True)
         if plots_dir is not None:
             os.makedirs(plots_dir, exist_ok=True)
@@ -51,7 +56,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         self.entry_file = os.path.join(json_dir, f"{initial_entry['date']}.json")
         self.index_file = os.path.join(json_dir, "index.json")
 
-        self.__entry_dict__ = initial_entry
+        self._entry_dict = initial_entry
 
         self.steps = []
 
@@ -63,13 +68,15 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             self._read_entry()
 
         self.plots_dir = plots_dir
-        # Plot handling (unchanged)
+
+
         if plots_dir is not None:
-            self.__entry_dict__["link"] = os.path.basename(plots_dir) + "/index.html"
+            self._entry_dict["link"] = os.path.basename(plots_dir) + "/index.html"
             self.output_html = os.path.join(plots_dir, "index.html")
             self.timerecord = os.path.join(plots_dir, "time_record.csv")
             self.fieldnames = ["status", "time", "duration"]
 
+        self._entry_dict["Status"] = "Launched"
         self._write_entry()
         self._update_index()
 
@@ -81,7 +88,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         """Load an existing run entry from disk into the in-memory metadata dict."""
         try:
             with open(self.entry_file, "r", encoding="utf-8") as f:
-                self.__entry_dict__ = json.load(f)
+                self._entry_dict = json.load(f)
         except Exception as e:
             logger.error("Failed to read entry JSON: %s", e)
             raise e
@@ -90,7 +97,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         """Persist the current run state to the JSON entry file."""
         try:
             with open(self.entry_file, "w", encoding="utf-8") as f:
-                json.dump(self.__entry_dict__, f, indent=2)
+                json.dump(self._entry_dict, f, indent=2)
         except Exception as e:
             logger.error("Failed to write entry JSON: %s", e)
             raise e
@@ -131,12 +138,12 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
 
         now = datetime.now()
         if self.start_time:
-            self.__entry_dict__["run_time"] = (now - self.start_time).total_seconds()
+            self._entry_dict["run_time"] = (now - self.start_time).total_seconds()
 
         result_keys = set(result.keys())
 
         for key in result_keys & self.free_keys:
-            self.__entry_dict__[key] = result[key]
+            self._entry_dict[key] = result[key]
 
         self._write_entry()
 
@@ -144,8 +151,9 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         if self.plots_dir is not None and os.path.exists(self.plots_dir):
             try:
                 create_results_index(
-                    self.plots_dir,
-                    self.output_html,
+                    patterns=self.index_page_patterns,
+                    directory=self.plots_dir,
+                    output_file=self.output_html,
                     title=os.path.basename(self.plots_dir),
                 )
             except Exception as e:
@@ -164,7 +172,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             seconds = total_seconds % 60
 
             record = {
-                "status": self.__entry_dict__["Status"],
+                "status": self._entry_dict["Status"],
                 "time": now.strftime("%H:%M:%S"),
                 "duration": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
             }
@@ -206,7 +214,16 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
         args = step["args"]
         kwargs = step["kwargs"]
         name = step["name"]
+        aux = step["aux"]
         result = {"Status": ""}
+
+        if aux:
+            try:
+                func(*args, **kwargs)
+                return
+            except Exception as e:
+                logger.error("Error during %s: %s", name, e)
+                raise e
 
         try:
             result = func(*args, **kwargs)  # Assuming func returns a Status enum

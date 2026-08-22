@@ -30,6 +30,13 @@ def main():
     )
 
     parser.add_argument(
+        "--samples",
+        type=int,
+        default=500,
+        help="Number of Samples",
+    )
+
+    parser.add_argument(
         "--ames-housing",
         action="store_true",
         default=False,
@@ -39,7 +46,7 @@ def main():
     args = parser.parse_args()
 
     model = HousingModel(
-        data_size=500,
+        data_size=args.samples,
     )
 
     print("Starting to run")

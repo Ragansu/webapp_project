@@ -8,9 +8,8 @@ from datetime import datetime
 import json
 import warnings
 import logging
+import fnmatch
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-from . import Status
 
 logger = logging.getLogger(__name__)
 
@@ -27,120 +26,162 @@ repo_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def _get_template_environment():
+    """Create and configure the Jinja2 environment used by report templates."""
     return Environment(
         loader=FileSystemLoader(f"{repo_dir}/templates"),
         autoescape=select_autoescape(["html", "xml"]),
     )
 
 
-def create_results_index(
+def _display_name(file_path, pattern):
+    """Create a human-readable display name from a report file path.
+
+    Removes the HTML extension and any matching wildcard prefix or suffix,
+    then replaces underscores with spaces and capitalizes the result.
+
+    Args:
+        file_path: Path to the report file.
+        pattern: File-matching pattern used to identify the report.
+
+    Returns:
+        The formatted display name, or an empty string if no name is available.
+    """
+
+    file_name = os.path.basename(file_path)
+
+    # 1. Determine base name stem
+    if file_name == "index.html":
+        name = os.path.basename(os.path.dirname(file_path))
+    else:
+        name = file_name.removesuffix(".html")
+
+        # Only strip prefix/suffix if pattern actually contains a wildcard '*'
+        if "*" in pattern:
+            pattern_stem = pattern.removesuffix(".html")
+            prefix, _, suffix = pattern_stem.partition("*")
+
+            if prefix and name.startswith(prefix) and len(name) > len(prefix):
+                name = name[len(prefix) :]
+
+            if suffix and name.endswith(suffix):
+                name = name[: -len(suffix)]
+
+    # 2. Normalize underscores and whitespace
+    name = name.replace("_", " ").strip()
+
+    # 3. Capitalize first letter safely (or return empty string if empty)
+    return name.capitalize() if name else ""
+
+
+def _get_files_dict(file_paths, processed_files, root_dir, pattern):
+    """Build report file dictionaries for files not already processed."""
+    files = []
+
+    for file_path in file_paths:
+
+        if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
+            continue
+        if file_path in processed_files:
+            continue
+
+        files.append(
+            {
+                "name": _display_name(file_path, pattern),
+                "path": os.path.relpath(file_path, root_dir),
+            }
+        )
+
+    return sorted(files, key=lambda item: item["name"])
+
+
+def create_results_index(  # pylint: disable=too-many-locals
+    patterns=None,
     directory=_DEFAULT_SAVE_DIR,
     output_file="index.html",
     title="ML Analysis Results Index",
-):  # pylint: disable=too-many-locals,too-many-statements,too-many-branches
-    """Creates an HTML index page linking to all result files using Jinja2 template."""
+):
+    """Create an HTML index using user-defined file patterns."""
 
-    # Setup Jinja2 environment
-
-    root_dir = os.path.dirname(output_file)
     env = _get_template_environment()
+    root_dir = os.path.dirname(output_file)
 
-    top_folders = glob.glob(os.path.join(directory, "*/"))
-    folders = set(top_folders)  # These paths end with os.sep
-    folders.add(directory)
+    # ---------------------------------------------------------
+    # 1. Collect the files that should actually be indexed.
+    # ---------------------------------------------------------
     html_files = set()
-    processed_files = set()  # Track files we've already added
 
-    # For each folder, check if it has an index.html
-    for folder in folders:
+    if patterns is None:
+        patterns = {}
+
+    patterns = {
+        "Indexes": "index.html",
+        **patterns,
+    }
+
+    # Files directly in the root directory.
+    for file_path in glob.glob(os.path.join(directory, "*.html")):
+        html_files.add(file_path)
+
+    # Check each immediate subfolder.
+    top_folders = glob.glob(os.path.join(directory, "*/"))
+
+    for folder in top_folders:
         index_path = os.path.join(folder, "index.html")
 
-        if os.path.exists(index_path) and (index_path != output_file):
-            if index_path not in processed_files:
-                html_files.add(index_path)
-                processed_files.add(index_path)
+        if os.path.exists(index_path):
+            # If the folder has an index, only show the index.
+            html_files.add(index_path)
         else:
-            folder_files = glob.glob(os.path.join(folder, "*.html"))
-            for file_path in folder_files:
-                if file_path not in processed_files:
-                    html_files.add(file_path)
-                    processed_files.add(file_path)
+            # Otherwise show all HTML files in that folder.
+            for file_path in glob.glob(os.path.join(folder, "*.html")):
+                html_files.add(file_path)
 
-    list(html_files)
-    html_files = sorted(list(html_files))
+    # Never include the index we're generating.
+    html_files.discard(output_file)
 
-    # Separate files into categories
-    nll_groups = {}
-    density_ratios = {}
-    misc_files = {}
-    index_files = {}
+    html_files = sorted(html_files)
 
-    for file_path in html_files:
-        file_name = os.path.basename(file_path)
-        relative_path = os.path.relpath(file_path, root_dir)
-        logger.debug("Relative Path : %s", relative_path)
-        logger.debug("Root Path : %s", root_dir)
-        if "NLLs_" in file_name:
-            # Extract the base name (without test/holdout and extension)
-            base_name = (
-                file_name.replace("NLLs_", "")
-                .replace("_holdout_", "")
-                .replace("_test_", "")
-                .replace(".html", "")
-            )
+    # ---------------------------------------------------------
+    # 2. Apply patterns to the collected files.
+    # ---------------------------------------------------------
+    file_groups = {}
+    processed_files = set()
 
-            if base_name not in nll_groups:
-                nll_groups[base_name] = {}
+    for group_name, pattern in patterns.items():
 
-            if "holdout" in file_name:
-                nll_groups[base_name]["holdout"] = relative_path
-            elif "test" in file_name:
-                nll_groups[base_name]["test"] = relative_path
+        group_files = _get_files_dict(html_files, processed_files, root_dir, pattern)
 
-        elif file_name.endswith("_density_ratios.html"):
-            logger.debug("File Name : %s", file_name)
-            density_ratios[file_name] = relative_path
+        if group_files:
+            file_groups[group_name] = group_files
 
-        elif file_name.endswith("index.html"):
-            parent_folder = os.path.basename(os.path.dirname(relative_path))
-            base_name = file_name.replace("index.html", parent_folder)
-            logger.debug("Base Name : %s", base_name)
-            index_files[base_name] = relative_path
-        else:
+    # ---------------------------------------------------------
+    # 3. Anything that didn't match a pattern goes into
+    #    "Other Reports".
+    # ---------------------------------------------------------
+    misc_files = _get_files_dict(html_files, processed_files, root_dir, "*.html")
 
-            base_name = file_name.replace("_", " ").replace(".html", "")
-            logger.debug("Base Name : %s", base_name)
-            misc_files[base_name] = relative_path
+    if misc_files:
+        file_groups["Other Reports"] = misc_files
 
-    # Prepare data for template
+    # ---------------------------------------------------------
+    # 4. Render template.
+    # ---------------------------------------------------------
     template_data = {
         "title": title,
         "html_files": html_files,
-        "file_groups": {
-            "nll_groups": nll_groups,
-            "density_ratios": density_ratios,
-            "index_files": index_files,
-            "misc_files": misc_files,
-        },
+        "file_groups": file_groups,
         "output_file_stem": Path(output_file).stem,
     }
 
-    # Load and render template
     template = env.get_template("index_template.html")
     html_content = template.render(**template_data)
 
-    # Write to file
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     logger.info("Index created: %s", output_file)
     logger.info("Total files indexed: %s", len(html_files))
-    logger.info("NLL groups: %s", len(nll_groups))
-    logger.info("Density ratio files: %s", len(density_ratios))
-    logger.info("Index files: %s", len(index_files))
-    logger.info("Miscellaneous files: %s", len(misc_files))
-
-    return Status.SUCCESS
+    logger.info("Groups: %s", len(file_groups))
 
 
 def config_to_html(config, filename="config_report.html"):
@@ -163,16 +204,9 @@ def config_to_html(config, filename="config_report.html"):
             list_attrs.append((attr_name, attr_value))
 
         elif isinstance(attr_value, dict):
-            if attr_name == "CLF_config":
-                # Flatten CLF_config dictionary with prefixed keys
-                for key, value in attr_value.items():
-                    prefixed_key = f"CLF_config.{key}"
-                    dict_attrs[prefixed_key] = prefixed_key
-                    dictionary_data[prefixed_key] = value
-            else:
-                # Store other dictionaries as-is
-                dict_attrs[attr_name] = attr_name
-                dictionary_data[attr_name] = attr_value
+            # Store other dictionaries as-is
+            dict_attrs[attr_name] = attr_name
+            dictionary_data[attr_name] = attr_value
 
         else:
             simple_attrs.append((attr_name, attr_value))
@@ -189,8 +223,6 @@ def config_to_html(config, filename="config_report.html"):
     # Save to file
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_content)
-
-    return Status.SUCCESS
 
 
 def text_report_to_html(text, title="Report", filename="text_report.html"):
@@ -283,30 +315,22 @@ def save_table_html(df, title, filename):
         "created": datetime.now().isoformat(),
     }
 
-    if os.path.exists(filename) and os.path.exists(data_file):
-        try:
-            # Load existing sections
-            with open(data_file, "r", encoding="utf-8") as f:
-                sections = json.load(f)
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            sections = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        sections = []
 
-            # Check if section with same title already exists
-            existing_titles = [s.get("title") for s in sections]
-            if title in existing_titles:
-                # Update existing section
-                for i, section in enumerate(sections):
-                    if section.get("title") == title:
-                        sections[i] = new_section
-                        break
-            else:
-                # Append new section
-                sections.append(new_section)
+    # Find existing section by title
+    existing_index = next(
+        (i for i, section in enumerate(sections) if section.get("title") == title),
+        None,
+    )
 
-        except (json.JSONDecodeError, FileNotFoundError):
-            # Start fresh if data file is corrupted
-            sections = [new_section]
+    if existing_index is not None:
+        sections[existing_index] = new_section
     else:
-        # Start fresh
-        sections = [new_section]
+        sections.append(new_section)
 
     # Save sections to data file
     with open(data_file, "w", encoding="utf-8") as f:
@@ -333,7 +357,6 @@ def image_gallery_to_html(
     output_file="image_gallery.html",
     file_title="Image Gallery",
     dictionary_data=None,
-    index_dir="index.html",
 ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
     Generate an HTML image gallery page from a list of image entries.
@@ -345,7 +368,6 @@ def image_gallery_to_html(
         output_file: Name or path of the generated HTML output file.
         file_title: Title displayed on the rendered gallery page.
         dictionary_data: Optional additional metadata to pass to the template.
-        index_dir: Path or filename used for the gallery index link.
 
     Example:
         ```python
@@ -378,7 +400,6 @@ def image_gallery_to_html(
         "file_title": file_title,
         "images": images,
         "generation_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "index_dir": index_dir,
     }
 
     if dictionary_data:

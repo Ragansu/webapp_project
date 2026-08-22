@@ -56,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Function to execute shell script with option selection
     async function executeScript(rowData) {
-
         // Find the action configuration
         const actionConfig = DASHBOARD_CONFIG.action?.find(
             action => action.key === "run_script"
@@ -79,103 +78,134 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             modal.innerHTML = await response.text();
-
         } catch (error) {
             console.error(error);
             return;
         }
 
+        // Function to close and cleanup modal
+        const closeModal = () => {
+            if (modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+            if (window.currentModal === modal) {
+                window.currentModal = null;
+            }
+        };
+
+        // 1. Populate Flags (Checkboxes)
         const flagsContainer = modal.querySelector("#job-flags-container");
-
         if (flagsContainer) {
-
             flagsContainer.innerHTML = "";
 
             (actionConfig.job_flags || []).forEach((flag, index) => {
-
                 const label = document.createElement("label");
-
                 label.style.display = "flex";
                 label.style.alignItems = "center";
                 label.style.gap = "8px";
                 label.style.cursor = "pointer";
 
                 const checkbox = document.createElement("input");
-
                 checkbox.type = "checkbox";
                 checkbox.id = `job-flag-${index}`;
-
-                // Store the config information on the checkbox
                 checkbox.dataset.flag = flag.key;
-                checkbox.dataset.value = flag.value;
+                checkbox.dataset.value = flag.value ?? "";
 
                 label.appendChild(checkbox);
-
-                label.appendChild(
-                    document.createTextNode(flag.label || flag.key)
-                );
+                label.appendChild(document.createTextNode(flag.label || flag.key));
 
                 flagsContainer.appendChild(label);
             });
         }
 
-        // Configure the run button from the config
-        const runButton = modal.querySelector(".action-btn-green");
+        // 2. Populate Arguments (Text Inputs / Options)
+        const argsContainer = modal.querySelector("#job-arguments-container");
+        if (argsContainer) {
+            argsContainer.innerHTML = "";
 
-        if (runButton) {
+            (actionConfig.job_arguments || []).forEach((arg, index) => {
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "flex";
+                wrapper.style.flexDirection = "column";
+                wrapper.style.gap = "4px";
 
-            runButton.textContent = actionConfig.title;
+                const label = document.createElement("label");
+                label.htmlFor = `job-arg-${index}`;
+                label.textContent = arg.label || arg.key;
 
-            runButton.dataset.actionKey = actionConfig.key;
-            runButton.dataset.actionType = actionConfig.action_type;
-            runButton.dataset.jobPlugin = actionConfig.job_plugin;
+                const input = document.createElement("input");
+                input.type = "text";
+                input.id = `job-arg-${index}`;
+                input.className = "job-argument-input";
+                input.dataset.argKey = arg.key;
+                input.value = arg.default_value || "";
+                if (arg.placeholder) input.placeholder = arg.placeholder;
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                argsContainer.appendChild(wrapper);
+            });
         }
 
-        // Add event listeners to buttons
-        const buttons = modal.querySelectorAll(".action-btn");
-
-        buttons.forEach(button => {
-
-            if (button.classList.contains("action-btn-cancel")) {
-
-                button.addEventListener("click", closeModal);
-
-            } else {
-
-                button.addEventListener("click", () => {
-
-                    // Collect selected flags
-                    const selectedFlags = [];
-
-                    modal
-                        .querySelectorAll(
-                            "#job-flags-container input[type='checkbox']:checked"
-                        )
-                        .forEach(checkbox => {
-
-                            selectedFlags.push({
-                                key: checkbox.dataset.flag,
-                                value: checkbox.dataset.value
-                            });
-                        });
-
-                    handleOption(
-                        button.dataset.action || "re-run",
-                        rowData,
-                        selectedFlags
-                    );
-                });
+        // 3. Configure Run Button (Targeting matching HTML class .action-btn-retrain)
+        const runButton = modal.querySelector(".action-btn-retrain");
+        if (runButton) {
+            if (actionConfig.title) {
+                runButton.textContent = actionConfig.title;
             }
-        });
+            runButton.dataset.actionKey = actionConfig.key;
+            runButton.dataset.actionType = actionConfig.action_type || "";
+            runButton.dataset.jobPlugin = actionConfig.job_plugin || "";
+        }
+
+        // 4. Attach Event Listeners to Buttons
+        const cancelButton = modal.querySelector(".action-btn-cancel");
+        if (cancelButton) {
+            cancelButton.addEventListener("click", closeModal);
+        }
+
+        if (runButton) {
+            runButton.addEventListener("click", () => {
+                // Collect Selected Flags
+                const selectedFlags = [];
+                modal.querySelectorAll("#job-flags-container input[type='checkbox']:checked")
+                    .forEach(checkbox => {
+                        selectedFlags.push({
+                            key: checkbox.dataset.flag,
+                            value: checkbox.dataset.value
+                        });
+                    });
+
+                // Collect Populated Arguments
+                const selectedArguments = [];
+                modal.querySelectorAll("#job-arguments-container .job-argument-input")
+                    .forEach(input => {
+                        const val = input.value.trim();
+                        if (val !== "") {
+                            selectedArguments.push({
+                                key: input.dataset.argKey,
+                                value: val
+                            });
+                        }
+                    });
+
+                // Execute handler with modal data
+                handleOption(
+                    runButton.dataset.actionKey || "run_script",
+                    rowData,
+                    selectedFlags,
+                    selectedArguments
+                );
+
+                closeModal();
+            });
+        }
 
         // Add modal to page
         document.body.appendChild(modal);
-
-        // Store modal reference for cleanup
         window.currentModal = modal;
     }
-    // Handle the selected option
-    function handleOption(action, rowData, selectedFlags) {
+    function handleOption(action, rowData, selectedFlags,selectedArguments) {
         closeModal();
 
         const notificationMessage =
@@ -195,7 +225,8 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify({
                 ...rowData,
                 action: action,
-                job_flags: selectedFlags
+                job_flags: selectedFlags,
+                job_arguments : selectedArguments
             })
         })
             .then(response => {

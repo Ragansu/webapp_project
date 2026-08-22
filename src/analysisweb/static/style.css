@@ -981,3 +981,44 @@ tr:hover {
     /* preserves \n but wraps text */
     margin-bottom: 0.5rem;
 }
+
+.option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 30px;
+
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.option-item {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+}
+
+.option-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.option-checkbox input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.argument-input {
+    display: none;
+
+    margin-top: 6px;
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 6px 8px;
+}
+
+.argument-input.visible {
+    display: block;
+}

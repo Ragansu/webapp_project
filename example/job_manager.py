@@ -47,6 +47,7 @@ def submit_job(data, unique_date):
     print("json_dir:", json_dir)
 
     selected_flags = data.get("job_flags", [])
+    selected_job_arguments = data.get("job_arguments", [])
 
     # Construct the command
     command = f'python "{current_dir}/run_script.py" --unique-date {unique_date} '
@@ -54,6 +55,9 @@ def submit_job(data, unique_date):
     print(f"Selected flags: {selected_flags}")
 
     for flag in selected_flags:
+        command += f" --{flag['key']}"
+
+    for flag in selected_job_arguments:
         command += f" --{flag['key']} {flag['value']}"
 
     command += f' > "{current_dir}/logs/log_{unique_date}.log" 2>&1'

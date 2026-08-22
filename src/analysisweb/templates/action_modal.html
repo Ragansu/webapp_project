@@ -1,25 +1,30 @@
 <div class="action-modal-content">
-    <h3>
-        Select Action</span>
-    </h3>
+    <h3>Select Action</h3>
 
+    <!-- FLAGS -->
+    <h4>Flags</h4>
 
-    <div class="checkbox-container" style="margin-bottom: 20px;">
-        <div
-            id="job-flags-container"
-            style="display: flex; align-items: center; justify-content: center; gap: 20px;"
-        >
-            <!-- Checkboxes generated from config -->
+    <div class="checkbox-container">
+        <div id="job-flags-container" class="option-grid">
+            <!-- Flags generated from JS/config -->
+        </div>
+    </div>
+
+    <!-- ARGUMENTS -->
+    <h4>Arguments</h4>
+
+    <div class="checkbox-container">
+        <div id="job-arguments-container" class="option-grid">
+            <!-- Arguments generated from JS/config -->
         </div>
     </div>
 
     <div class="action-button-container">
-        <button
-            class="action-btn action-btn-retrain">
-            Run  Script
+        <button type="button" class="action-btn action-btn-retrain">
+            Run Script
         </button>
 
-        <button class="action-btn action-btn-cancel">
+        <button type="button" class="action-btn action-btn-cancel">
             Cancel
         </button>
     </div>
