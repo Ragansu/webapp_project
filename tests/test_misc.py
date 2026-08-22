@@ -1,7 +1,10 @@
+"""Tests for the application's CLI, configuration loading, and setup."""
+
 import sys
-import pytest
 from unittest.mock import ANY
+
 import yaml
+import pytest
 
 from analysisweb.app import create_app, load_config
 from analysisweb.cli import main
@@ -91,6 +94,7 @@ def test_main_missing_required_arguments(monkeypatch):
 
 
 def test_load_config(tmp_path):
+    """Verify a YAML configuration file is loaded correctly."""
     config_file = tmp_path / "config.yaml"
     config = {
         "action": [
@@ -108,6 +112,7 @@ def test_load_config(tmp_path):
 
 
 def test_load_config_file_not_found(tmp_path):
+    """Verify loading a missing configuration file raises FileNotFoundError."""
     config_file = tmp_path / "missing.yaml"
 
     with pytest.raises(
@@ -118,9 +123,10 @@ def test_load_config_file_not_found(tmp_path):
 
 
 def test_create_app_without_config(tmp_path, monkeypatch):
+    """Verify the app uses empty dashboard settings without a config file."""
     register_routes_called = False
 
-    def fake_register_routes(app):
+    def fake_register_routes(app): # pylint: disable=unused-argument
         nonlocal register_routes_called
         register_routes_called = True
 
@@ -142,6 +148,7 @@ def test_create_app_without_config(tmp_path, monkeypatch):
 
 
 def test_create_app_with_action_config(tmp_path, monkeypatch):
+    """Verify the configured job plugin is loaded when creating the app."""
     config_file = tmp_path / "config.yaml"
     config = {
         "action": [
@@ -162,7 +169,7 @@ def test_create_app_with_action_config(tmp_path, monkeypatch):
         loaded_plugin_path = path
         return expected_backend
 
-    def fake_register_routes(app):
+    def fake_register_routes(app):# pylint: disable=unused-argument
         nonlocal register_routes_called
         register_routes_called = True
 

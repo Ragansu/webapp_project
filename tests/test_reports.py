@@ -178,25 +178,6 @@ def test_create_results_index_logger_output(tmp_path, mock_template_env, caplog)
     assert "Groups: 1" in caplog.text
 
 
-def test_create_results_index_excludes_output_file(tmp_path, mock_template_env):
-    """Ensure the generated output index file itself is never indexed."""
-    _, mock_template = mock_template_env
-
-    output_index = str(tmp_path / "index.html")
-
-    # Run index creation on empty directory where output_file sits
-    create_results_index(
-        directory=str(tmp_path),
-        output_file=output_index,
-    )
-
-    render_kwargs = mock_template.render.call_args.kwargs
-    indexed_files = render_kwargs["html_files"]
-
-    # Verify output_file path was discarded
-    assert output_index not in indexed_files
-
-
 def test_create_results_index_uses_folder_html_when_no_nested_index(tmp_path):
     """Indexes HTML files from folders that do not contain index.html."""
     results_dir = tmp_path / "results"

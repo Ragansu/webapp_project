@@ -1,5 +1,7 @@
 """Tests for the Sequencer workflow"""
 
+# pylint: disable=protected-access
+
 import json
 import os
 
@@ -108,6 +110,7 @@ def test_existing_entry_is_loaded(tmp_path):
 
     with pytest.raises(json.JSONDecodeError):
         sequencer._read_entry()
+
 
 # ---------------------------------------------------------------------------
 # create_substep
@@ -410,14 +413,6 @@ def test_start_sets_setting_up(sequencer):
 
     assert entry["Status"] == "Setting Up"
 
-
-def test_read_write_entry(sequencer):
-    sequencer._read_entry()
-
-    with open(sequencer.entry_file, encoding="utf-8") as f:
-        entry = json.load(f)
-
-    pass
 
 def test_start_initializes_start_time(sequencer):
     """Test that start() initializes start_time."""

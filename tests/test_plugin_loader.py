@@ -1,14 +1,15 @@
+"""Tests for load_job_plugin"""
+
 import sys
-from pathlib import Path
 import pytest
 from analysisweb.plugin_loader import load_job_plugin
-
 
 # ==============================================================================
 # Tests for load_job_plugin
 # ==============================================================================
 
-def test_load_job_plugin_success(tmp_path, cleanup_plugin_imports):
+
+def test_load_job_plugin_success(tmp_path):
     """Verify load_job_plugin dynamically loads a valid Python file as a module."""
 
     # Create a temporary plugin file
@@ -30,8 +31,9 @@ def test_load_job_plugin_success(tmp_path, cleanup_plugin_imports):
     assert str(tmp_path.resolve()) == sys.path[0]
 
 
-def test_load_job_plugin_file_not_found(tmp_path, cleanup_plugin_imports):
-    """Verify loading a non-existent plugin path raises FileNotFoundError / AttributeError on exec."""
+def test_load_job_plugin_file_not_found(tmp_path):
+    """Verify loading a non-existent plugin path raises
+    FileNotFoundError / AttributeError on exec."""
 
     non_existent_file = tmp_path / "missing_plugin.py"
 
@@ -39,7 +41,7 @@ def test_load_job_plugin_file_not_found(tmp_path, cleanup_plugin_imports):
         load_job_plugin(non_existent_file)
 
 
-def test_load_job_plugin_accepts_string_path(tmp_path, cleanup_plugin_imports):
+def test_load_job_plugin_accepts_string_path(tmp_path):
     """Verify the function accepts string paths in addition to Path objects."""
 
     plugin_file = tmp_path / "str_plugin.py"
