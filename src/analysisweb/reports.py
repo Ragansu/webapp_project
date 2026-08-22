@@ -26,16 +26,27 @@ repo_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def _get_template_environment():
+    """Create and configure the Jinja2 environment used by report templates."""
     return Environment(
         loader=FileSystemLoader(f"{repo_dir}/templates"),
         autoescape=select_autoescape(["html", "xml"]),
     )
 
 
-import os
-
-
 def display_name(file_path, pattern):
+    """Create a human-readable display name from a report file path.
+
+    Removes the HTML extension and any matching wildcard prefix or suffix,
+    then replaces underscores with spaces and capitalizes the result.
+
+    Args:
+        file_path: Path to the report file.
+        pattern: File-matching pattern used to identify the report.
+
+    Returns:
+        The formatted display name, or an empty string if no name is available.
+    """
+
     file_name = os.path.basename(file_path)
 
     # 1. Determine base name stem
@@ -50,7 +61,7 @@ def display_name(file_path, pattern):
             prefix, _, suffix = pattern_stem.partition("*")
 
             if prefix and name.startswith(prefix) and len(name) > len(prefix):
-                name = name[len(prefix):]
+                name = name[len(prefix) :]
 
             if suffix and name.endswith(suffix):
                 name = name[: -len(suffix)]
@@ -206,16 +217,9 @@ def config_to_html(config, filename="config_report.html"):
             list_attrs.append((attr_name, attr_value))
 
         elif isinstance(attr_value, dict):
-            if attr_name == "CLF_config":
-                # Flatten CLF_config dictionary with prefixed keys
-                for key, value in attr_value.items():
-                    prefixed_key = f"CLF_config.{key}"
-                    dict_attrs[prefixed_key] = prefixed_key
-                    dictionary_data[prefixed_key] = value
-            else:
-                # Store other dictionaries as-is
-                dict_attrs[attr_name] = attr_name
-                dictionary_data[attr_name] = attr_value
+            # Store other dictionaries as-is
+            dict_attrs[attr_name] = attr_name
+            dictionary_data[attr_name] = attr_value
 
         else:
             simple_attrs.append((attr_name, attr_value))
@@ -324,30 +328,22 @@ def save_table_html(df, title, filename):
         "created": datetime.now().isoformat(),
     }
 
-    if os.path.exists(filename) and os.path.exists(data_file):
-        try:
-            # Load existing sections
-            with open(data_file, "r", encoding="utf-8") as f:
-                sections = json.load(f)
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            sections = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        sections = []
 
-            # Check if section with same title already exists
-            existing_titles = [s.get("title") for s in sections]
-            if title in existing_titles:
-                # Update existing section
-                for i, section in enumerate(sections):
-                    if section.get("title") == title:
-                        sections[i] = new_section
-                        break
-            else:
-                # Append new section
-                sections.append(new_section)
+    # Find existing section by title
+    existing_index = next(
+        (i for i, section in enumerate(sections) if section.get("title") == title),
+        None,
+    )
 
-        except (json.JSONDecodeError, FileNotFoundError):
-            # Start fresh if data file is corrupted
-            sections = [new_section]
+    if existing_index is not None:
+        sections[existing_index] = new_section
     else:
-        # Start fresh
-        sections = [new_section]
+        sections.append(new_section)
 
     # Save sections to data file
     with open(data_file, "w", encoding="utf-8") as f:
