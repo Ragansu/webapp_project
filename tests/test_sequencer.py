@@ -97,8 +97,17 @@ def test_existing_entry_is_loaded(tmp_path):
         initial_entry=entry,
     )
 
-    assert sequencer.__entry_dict__ == entry
+    assert sequencer._entry_dict == entry
 
+    entry_file.write_text(
+        '{"date": "20260819_10_00_00", "run_time": 123',
+        encoding="utf-8",
+    )
+
+    sequencer.entry_file = entry_file
+
+    with pytest.raises(json.JSONDecodeError):
+        sequencer._read_entry()
 
 # ---------------------------------------------------------------------------
 # create_substep
@@ -354,7 +363,7 @@ def test_failed_step_updates_status(sequencer):
     with pytest.raises(RuntimeError, match="boom"):
         sequencer.run()
 
-    entry = sequencer.__entry_dict__
+    entry = sequencer._entry_dict
 
     assert entry["Status"] == f"{Status.FAILED.value} | Broken Step"
 
@@ -397,10 +406,18 @@ def test_start_sets_setting_up(sequencer):
     """Test that start() sets status to 'Setting Up'."""
     sequencer.start()
 
-    entry = sequencer.__entry_dict__
+    entry = sequencer._entry_dict
 
     assert entry["Status"] == "Setting Up"
 
+
+def test_read_write_entry(sequencer):
+    sequencer._read_entry()
+
+    with open(sequencer.entry_file, encoding="utf-8") as f:
+        entry = json.load(f)
+
+    pass
 
 def test_start_initializes_start_time(sequencer):
     """Test that start() initializes start_time."""
@@ -416,7 +433,7 @@ def test_run_sets_running_before_steps(sequencer):
     observed_statuses = []
 
     def step():
-        observed_statuses.append(sequencer.__entry_dict__["Status"])
+        observed_statuses.append(sequencer._entry_dict["Status"])
         return {"Status": Status.SUCCESS}
 
     sequencer.add_algorithm(step)
@@ -429,7 +446,7 @@ def test_end_sets_completed(sequencer):
     """Test that end() sets status to 'Completed'."""
     sequencer.end()
 
-    entry = sequencer.__entry_dict__
+    entry = sequencer._entry_dict
 
     assert entry["Status"] == "Completed"
 
@@ -438,7 +455,7 @@ def test_cancel_sets_cancelled(sequencer):
     """Test that cancel() sets status to 'Cancelled'."""
     sequencer.cancel()
 
-    entry = sequencer.__entry_dict__
+    entry = sequencer._entry_dict
 
     assert entry["Status"] == "Cancelled"
 
@@ -479,7 +496,7 @@ def test_update_does_not_add_unknown_keys(sequencer):
         }
     )
 
-    entry = sequencer.__entry_dict__
+    entry = sequencer._entry_dict
 
     assert entry["Status"] == "Running"
     assert "something_unknown" not in entry
@@ -633,6 +650,9 @@ def test_full_sequence_lifecycle(sequencer):
         executed.append("analyze")
         return {"Status": Status.SUCCESS}
 
+    def auxilary():
+        executed.append("auxilary")
+
     def report():
         executed.append("report")
         return {"Status": Status.SUCCESS}
@@ -648,6 +668,12 @@ def test_full_sequence_lifecycle(sequencer):
     )
 
     sequencer.add_algorithm(
+        auxilary,
+        aux=True,
+        name="auxilary",
+    )
+
+    sequencer.add_algorithm(
         report,
         name="Report",
     )
@@ -659,7 +685,8 @@ def test_full_sequence_lifecycle(sequencer):
     assert executed == [
         "prepare",
         "analyze",
+        "auxilary",
         "report",
     ]
 
-    assert sequencer.__entry_dict__["Status"] == "Completed"
+    assert sequencer._entry_dict["Status"] == "Completed"

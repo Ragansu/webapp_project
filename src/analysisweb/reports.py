@@ -33,7 +33,7 @@ def _get_template_environment():
     )
 
 
-def display_name(file_path, pattern):
+def _display_name(file_path, pattern):
     """Create a human-readable display name from a report file path.
 
     Removes the HTML extension and any matching wildcard prefix or suffix,
@@ -73,7 +73,28 @@ def display_name(file_path, pattern):
     return name.capitalize() if name else ""
 
 
-def create_results_index(
+def _get_files_dict(file_paths, processed_files, root_dir, pattern):
+    """Build report file dictionaries for files not already processed."""
+    files = []
+
+    for file_path in file_paths:
+
+        if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
+            continue
+        if file_path in processed_files:
+            continue
+
+        files.append(
+            {
+                "name": _display_name(file_path, pattern),
+                "path": os.path.relpath(file_path, root_dir),
+            }
+        )
+
+    return sorted(files, key=lambda item: item["name"])
+
+
+def create_results_index(  # pylint: disable=too-many-locals
     patterns=None,
     directory=_DEFAULT_SAVE_DIR,
     output_file="index.html",
@@ -127,54 +148,20 @@ def create_results_index(
     processed_files = set()
 
     for group_name, pattern in patterns.items():
-        group_files = []
 
-        for file_path in html_files:
-            if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
-                continue
-
-            relative_path = os.path.relpath(file_path, root_dir)
-            name = display_name(file_path, pattern)
-
-            group_files.append(
-                {
-                    "name": name,
-                    "path": relative_path,
-                }
-            )
-
-            processed_files.add(file_path)
+        group_files = _get_files_dict(html_files, processed_files, root_dir, pattern)
 
         if group_files:
-            file_groups[group_name] = sorted(
-                group_files,
-                key=lambda item: item["name"],
-            )
+            file_groups[group_name] = group_files
 
     # ---------------------------------------------------------
     # 3. Anything that didn't match a pattern goes into
     #    "Other Reports".
     # ---------------------------------------------------------
-    misc_files = []
-
-    for file_path in html_files:
-        if file_path in processed_files:
-            continue
-
-        relative_path = os.path.relpath(file_path, root_dir)
-
-        misc_files.append(
-            {
-                "name": display_name(file_path, "*.html"),
-                "path": relative_path,
-            }
-        )
+    misc_files = _get_files_dict(html_files, processed_files, root_dir, "*.html")
 
     if misc_files:
-        file_groups["Other Reports"] = sorted(
-            misc_files,
-            key=lambda item: item["name"],
-        )
+        file_groups["Other Reports"] = misc_files
 
     # ---------------------------------------------------------
     # 4. Render template.
