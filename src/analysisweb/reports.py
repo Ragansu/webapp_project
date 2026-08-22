@@ -26,16 +26,27 @@ repo_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def _get_template_environment():
+    """Create and configure the Jinja2 environment used by report templates."""
     return Environment(
         loader=FileSystemLoader(f"{repo_dir}/templates"),
         autoescape=select_autoescape(["html", "xml"]),
     )
 
 
-import os
+def _display_name(file_path, pattern):
+    """Create a human-readable display name from a report file path.
 
+    Removes the HTML extension and any matching wildcard prefix or suffix,
+    then replaces underscores with spaces and capitalizes the result.
 
-def display_name(file_path, pattern):
+    Args:
+        file_path: Path to the report file.
+        pattern: File-matching pattern used to identify the report.
+
+    Returns:
+        The formatted display name, or an empty string if no name is available.
+    """
+
     file_name = os.path.basename(file_path)
 
     # 1. Determine base name stem
@@ -50,7 +61,7 @@ def display_name(file_path, pattern):
             prefix, _, suffix = pattern_stem.partition("*")
 
             if prefix and name.startswith(prefix) and len(name) > len(prefix):
-                name = name[len(prefix):]
+                name = name[len(prefix) :]
 
             if suffix and name.endswith(suffix):
                 name = name[: -len(suffix)]
@@ -62,7 +73,28 @@ def display_name(file_path, pattern):
     return name.capitalize() if name else ""
 
 
-def create_results_index(
+def _get_files_dict(file_paths, processed_files, root_dir, pattern):
+    """Build report file dictionaries for files not already processed."""
+    files = []
+
+    for file_path in file_paths:
+
+        if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
+            continue
+        if file_path in processed_files:
+            continue
+
+        files.append(
+            {
+                "name": _display_name(file_path, pattern),
+                "path": os.path.relpath(file_path, root_dir),
+            }
+        )
+
+    return sorted(files, key=lambda item: item["name"])
+
+
+def create_results_index(  # pylint: disable=too-many-locals
     patterns=None,
     directory=_DEFAULT_SAVE_DIR,
     output_file="index.html",
@@ -116,54 +148,20 @@ def create_results_index(
     processed_files = set()
 
     for group_name, pattern in patterns.items():
-        group_files = []
 
-        for file_path in html_files:
-            if not fnmatch.fnmatch(os.path.basename(file_path), pattern):
-                continue
-
-            relative_path = os.path.relpath(file_path, root_dir)
-            name = display_name(file_path, pattern)
-
-            group_files.append(
-                {
-                    "name": name,
-                    "path": relative_path,
-                }
-            )
-
-            processed_files.add(file_path)
+        group_files = _get_files_dict(html_files, processed_files, root_dir, pattern)
 
         if group_files:
-            file_groups[group_name] = sorted(
-                group_files,
-                key=lambda item: item["name"],
-            )
+            file_groups[group_name] = group_files
 
     # ---------------------------------------------------------
     # 3. Anything that didn't match a pattern goes into
     #    "Other Reports".
     # ---------------------------------------------------------
-    misc_files = []
-
-    for file_path in html_files:
-        if file_path in processed_files:
-            continue
-
-        relative_path = os.path.relpath(file_path, root_dir)
-
-        misc_files.append(
-            {
-                "name": display_name(file_path, "*.html"),
-                "path": relative_path,
-            }
-        )
+    misc_files = _get_files_dict(html_files, processed_files, root_dir, "*.html")
 
     if misc_files:
-        file_groups["Other Reports"] = sorted(
-            misc_files,
-            key=lambda item: item["name"],
-        )
+        file_groups["Other Reports"] = misc_files
 
     # ---------------------------------------------------------
     # 4. Render template.
@@ -206,16 +204,9 @@ def config_to_html(config, filename="config_report.html"):
             list_attrs.append((attr_name, attr_value))
 
         elif isinstance(attr_value, dict):
-            if attr_name == "CLF_config":
-                # Flatten CLF_config dictionary with prefixed keys
-                for key, value in attr_value.items():
-                    prefixed_key = f"CLF_config.{key}"
-                    dict_attrs[prefixed_key] = prefixed_key
-                    dictionary_data[prefixed_key] = value
-            else:
-                # Store other dictionaries as-is
-                dict_attrs[attr_name] = attr_name
-                dictionary_data[attr_name] = attr_value
+            # Store other dictionaries as-is
+            dict_attrs[attr_name] = attr_name
+            dictionary_data[attr_name] = attr_value
 
         else:
             simple_attrs.append((attr_name, attr_value))
@@ -324,30 +315,22 @@ def save_table_html(df, title, filename):
         "created": datetime.now().isoformat(),
     }
 
-    if os.path.exists(filename) and os.path.exists(data_file):
-        try:
-            # Load existing sections
-            with open(data_file, "r", encoding="utf-8") as f:
-                sections = json.load(f)
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            sections = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        sections = []
 
-            # Check if section with same title already exists
-            existing_titles = [s.get("title") for s in sections]
-            if title in existing_titles:
-                # Update existing section
-                for i, section in enumerate(sections):
-                    if section.get("title") == title:
-                        sections[i] = new_section
-                        break
-            else:
-                # Append new section
-                sections.append(new_section)
+    # Find existing section by title
+    existing_index = next(
+        (i for i, section in enumerate(sections) if section.get("title") == title),
+        None,
+    )
 
-        except (json.JSONDecodeError, FileNotFoundError):
-            # Start fresh if data file is corrupted
-            sections = [new_section]
+    if existing_index is not None:
+        sections[existing_index] = new_section
     else:
-        # Start fresh
-        sections = [new_section]
+        sections.append(new_section)
 
     # Save sections to data file
     with open(data_file, "w", encoding="utf-8") as f:

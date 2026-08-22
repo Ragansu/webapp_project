@@ -76,9 +76,9 @@ class HousingModel:  # pylint: disable=too-many-instance-attributes
             housing = fetch_openml(name="house_prices", as_frame=True)
 
             # Keep only numerical features
-            x = housing.data.select_dtypes(
-                include="number"
-            ).iloc[: self.data_size]  # pylint: disable=no-member
+            x = housing.data.select_dtypes(include="number").iloc[
+                : self.data_size
+            ]  # pylint: disable=no-member
 
             self.y = housing.target.iloc[: self.data_size]  # pylint: disable=no-member
 
@@ -89,7 +89,9 @@ class HousingModel:  # pylint: disable=too-many-instance-attributes
         else:
             housing = fetch_california_housing(as_frame=True)
 
-            self.x = housing.data.select_dtypes(include="number").iloc[: self.data_size]  # pylint: disable=no-member
+            self.x = housing.data.select_dtypes(include="number").iloc[
+                : self.data_size
+            ]  # pylint: disable=no-member
             self.y = housing.target.iloc[: self.data_size]  # pylint: disable=no-member
 
         time.sleep(2)

@@ -1,20 +1,24 @@
 """Configs for pytests"""
+
 import sys
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 from flask import Flask
 
 from analysisweb.sequencer import Sequencer
 from analysisweb.routes import register_routes
 
+
 @pytest.fixture
 def mock_cli_deps():
     """Mocks external dependencies for the main CLI entry point."""
-    with patch("analysisweb.cli.create_app") as mock_create_app, \
-         patch("analysisweb.cli.threading.Timer") as mock_timer, \
-         patch("analysisweb.cli.webbrowser.open") as mock_browser_open:
+    with (
+        patch("analysisweb.cli.create_app") as mock_create_app,
+        patch("analysisweb.cli.threading.Timer") as mock_timer,
+        patch("analysisweb.cli.webbrowser.open") as mock_browser_open,
+    ):
 
         # Mock app instance returned by create_app
         mock_app = MagicMock()
@@ -31,6 +35,7 @@ def mock_cli_deps():
             "timer_inst": mock_timer_inst,
             "browser_open": mock_browser_open,
         }
+
 
 @pytest.fixture
 def mock_template_env():
@@ -105,6 +110,7 @@ def sequencer(tmp_path):
         json_dir=str(json_dir),
         plots_dir=str(plots_dir),
     )
+
 
 @pytest.fixture
 def cleanup_plugin_imports():

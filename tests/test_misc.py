@@ -1,9 +1,13 @@
+"""Tests for the application's CLI, configuration loading, and setup."""
+
 import sys
-import pytest
 from unittest.mock import ANY
-from analysisweb.cli import (
-    main,
-)  # Adjust import if main is in a different file (e.g., analysisweb.main)
+
+import yaml
+import pytest
+
+from analysisweb.app import create_app, load_config
+from analysisweb.cli import main
 
 # ==============================================================================
 # Tests for CLI entry point main()
@@ -87,3 +91,109 @@ def test_main_missing_required_arguments(monkeypatch):
 
     with pytest.raises(SystemExit):
         main()
+
+
+def test_load_config(tmp_path):
+    """Verify a YAML configuration file is loaded correctly."""
+    config_file = tmp_path / "config.yaml"
+    config = {
+        "action": [
+            {
+                "job_plugin": "my_package.jobs.example",
+            }
+        ]
+    }
+
+    config_file.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    result = load_config(config_file)
+
+    assert result == config
+
+
+def test_load_config_file_not_found(tmp_path):
+    """Verify loading a missing configuration file raises FileNotFoundError."""
+    config_file = tmp_path / "missing.yaml"
+
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"Config file not found: .*missing\.yaml",
+    ):
+        load_config(config_file)
+
+
+def test_create_app_without_config(tmp_path, monkeypatch):
+    """Verify the app uses empty dashboard settings without a config file."""
+    register_routes_called = False
+
+    def fake_register_routes(app): # pylint: disable=unused-argument
+        nonlocal register_routes_called
+        register_routes_called = True
+
+    monkeypatch.setattr(
+        "analysisweb.app.register_routes",
+        fake_register_routes,
+    )
+
+    results_dir = tmp_path / "results"
+    json_dir = tmp_path / "json"
+
+    app = create_app(results_dir, json_dir)
+
+    assert app.config["RESULTS_DIR"] == results_dir
+    assert app.config["JSON_DIR"] == json_dir
+    assert app.config["DASHBOARD_CONFIG"] == {}
+    assert not hasattr(app, "job_backend")
+    assert register_routes_called
+
+
+def test_create_app_with_action_config(tmp_path, monkeypatch):
+    """Verify the configured job plugin is loaded when creating the app."""
+    config_file = tmp_path / "config.yaml"
+    config = {
+        "action": [
+            {
+                "job_plugin": "my_package.jobs.example",
+            }
+        ]
+    }
+
+    config_file.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    expected_backend = object()
+    loaded_plugin_path = None
+    register_routes_called = False
+
+    def fake_load_job_plugin(path):
+        nonlocal loaded_plugin_path
+        loaded_plugin_path = path
+        return expected_backend
+
+    def fake_register_routes(app):# pylint: disable=unused-argument
+        nonlocal register_routes_called
+        register_routes_called = True
+
+    monkeypatch.setattr(
+        "analysisweb.app.load_job_plugin",
+        fake_load_job_plugin,
+    )
+    monkeypatch.setattr(
+        "analysisweb.app.register_routes",
+        fake_register_routes,
+    )
+
+    results_dir = tmp_path / "results"
+    json_dir = tmp_path / "json"
+
+    app = create_app(
+        results_dir,
+        json_dir,
+        config_file,
+    )
+
+    assert app.config["RESULTS_DIR"] == results_dir
+    assert app.config["JSON_DIR"] == json_dir
+    assert app.config["DASHBOARD_CONFIG"] == config
+    assert app.job_backend is expected_backend
+    assert loaded_plugin_path == "my_package.jobs.example"
+    assert register_routes_called

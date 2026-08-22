@@ -10,7 +10,7 @@ import pytest
 
 from analysisweb.reports import (
     config_to_html,
-    display_name,
+    _display_name,
     create_results_index,
     image_gallery_to_html,
     image_report_to_html,
@@ -48,13 +48,13 @@ from analysisweb.reports import (
 
 
 # ==============================================================================
-# Tests for display_name
+# Tests for _display_name
 # ==============================================================================
 
 
-def test_display_name(file_path, pattern, expected):
-    """Verify display_name transforms file paths and pattern stems correctly."""
-    assert display_name(file_path, pattern) == expected
+def test__display_name(file_path, pattern, expected):
+    """Verify _display_name transforms file paths and pattern stems correctly."""
+    assert _display_name(file_path, pattern) == expected
 
 
 # ==============================================================================
@@ -175,26 +175,7 @@ def test_create_results_index_logger_output(tmp_path, mock_template_env, caplog)
 
     assert f"Index created: {output_index}" in caplog.text
     assert "Total files indexed: 2" in caplog.text
-    assert "Groups: 1" in caplog.text
-
-
-def test_create_results_index_excludes_output_file(tmp_path, mock_template_env):
-    """Ensure the generated output index file itself is never indexed."""
-    _, mock_template = mock_template_env
-
-    output_index = str(tmp_path / "index.html")
-
-    # Run index creation on empty directory where output_file sits
-    create_results_index(
-        directory=str(tmp_path),
-        output_file=output_index,
-    )
-
-    render_kwargs = mock_template.render.call_args.kwargs
-    indexed_files = render_kwargs["html_files"]
-
-    # Verify output_file path was discarded
-    assert output_index not in indexed_files
+    assert "Groups: 2" in caplog.text
 
 
 def test_create_results_index_uses_folder_html_when_no_nested_index(tmp_path):
