@@ -38,7 +38,6 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             initial_entry = {
                 "date": now.strftime("%Y%m%d_%H_%M_%S"),
                 "run_time": 0,
-                "Status": "Launched",
                 "link": "/",
             }
 
@@ -63,13 +62,15 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             self._read_entry()
 
         self.plots_dir = plots_dir
-        # Plot handling (unchanged)
+
+
         if plots_dir is not None:
             self.__entry_dict__["link"] = os.path.basename(plots_dir) + "/index.html"
             self.output_html = os.path.join(plots_dir, "index.html")
             self.timerecord = os.path.join(plots_dir, "time_record.csv")
             self.fieldnames = ["status", "time", "duration"]
 
+        self.__entry_dict__["Status"] = "Launched"
         self._write_entry()
         self._update_index()
 
