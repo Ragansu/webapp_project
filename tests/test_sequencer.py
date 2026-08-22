@@ -99,6 +99,8 @@ def test_existing_entry_is_loaded(tmp_path):
         initial_entry=entry,
     )
 
+    entry["Status"] = "Launched"
+
     assert sequencer._entry_dict == entry
 
     entry_file.write_text(

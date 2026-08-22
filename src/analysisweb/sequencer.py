@@ -41,7 +41,13 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
                 "link": "/",
             }
 
+        initial_entry = {
+            "Status": "Launched",
+            **initial_entry,
+        }
+
         self.free_keys = set(initial_entry.keys()) - {"date", "link"}
+
         self.index_page_patterns = {}
         os.makedirs(json_dir, exist_ok=True)
         if plots_dir is not None:
@@ -70,7 +76,7 @@ class Sequencer:  # pylint: disable=too-many-instance-attributes,too-many-branch
             self.timerecord = os.path.join(plots_dir, "time_record.csv")
             self.fieldnames = ["status", "time", "duration"]
 
-        self.__entry_dict__["Status"] = "Launched"
+        self._entry_dict["Status"] = "Launched"
         self._write_entry()
         self._update_index()
 
